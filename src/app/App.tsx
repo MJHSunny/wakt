@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Network } from '@capacitor/network';
+import { applyFontCache } from '../services/fontCacheService';
 import { HomePage } from './components/HomePage';
 import { PrayerSchedulePage } from './components/PrayerSchedulePage';
 import { IslamicCalendarPage } from './components/IslamicCalendarPage';
@@ -145,6 +146,13 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
       unsubscribe.then(handler => handler.remove()).catch(() => {});
     };
   }, []);
+
+  // Apply cached fonts on startup (if available)
+  React.useEffect(() => {
+    applyFontCache().catch(() => {
+      // Silently fail if cache is not available
+    });
+  }, []);
   
   // Check if notifications are disabled (mandatory mode)
   // After initial permission check, decide whether to run setup
@@ -155,8 +163,11 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
     const timer = setTimeout(() => {
       setShowSplash(false);
       const missing: Array<'internet' | 'location' | 'notification' | 'gdpr'> = [];
-      if (isOnline === false) missing.push('internet');
-      if (!locationPermissionGranted) missing.push('location');
+      // Skip location entirely if a saved location exists; no permission or internet check
+      if (!location) {
+        if (isOnline === false) missing.push('internet');
+        missing.push('location');
+      }
       if (!notificationPermissionGranted) missing.push('notification');
       if (gdprConsentMissing) missing.push('gdpr');
 
@@ -165,7 +176,7 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [permissionsChecked, isOnline, locationPermissionGranted, notificationPermissionGranted, gdprConsentMissing, showSetupFlow]);
+  }, [permissionsChecked, isOnline, location, notificationPermissionGranted, gdprConsentMissing, showSetupFlow]);
 
   const splashLoaderCss = `
     .splash-loader {

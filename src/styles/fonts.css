@@ -1,2 +1,12 @@
-/* Optimized font imports - loading only essential weights with display=swap for better performance */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+/* 
+  Fonts are now loaded dynamically via fontCacheService.ts
+  This service caches fonts locally when internet is available during initial setup
+  and serves them from cache on subsequent runs for offline support
+*/
+
+/* Fallback fonts in case cache is not yet populated */
+@font-face {
+  font-family: 'Montserrat';
+  src: local('Montserrat'), sans-serif;
+  font-weight: 300;
+}

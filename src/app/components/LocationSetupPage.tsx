@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { MapPin, AlertCircle, Loader2 } from 'lucide-react';
-import { App } from '@capacitor/app';
-import { isGpsEnabled, searchLocations, LocationSuggestion } from '../../services/locationService';
+import { searchLocations, LocationSuggestion } from '../../services/locationService';
+import { Network } from '@capacitor/network';
+import { SystemSettings } from '../../services/systemSettings';
 import { useApp } from '../context/AppContext';
 
 interface LocationSetupPageProps {
@@ -15,16 +16,35 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [granted, setGranted] = useState(false);
-  const [deniedLocked, setDeniedLocked] = useState(false);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   // Debounced search
   useEffect(() => {
+    // Monitor network connectivity
+    const setupNet = async () => {
+      try {
+        const status = await Network.getStatus();
+        setIsOnline(!!status.connected && navigator.onLine);
+      } catch {
+        setIsOnline(navigator.onLine);
+      }
+    };
+    setupNet();
+    const listener = Network.addListener('networkStatusChange', (status) => {
+      setIsOnline(!!status.connected && navigator.onLine);
+    });
+
+    // Debounced search below
     const handler = setTimeout(async () => {
       const q = query.trim();
       if (q.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      if (isOnline === false) {
         setSuggestions([]);
         return;
       }
@@ -33,52 +53,30 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
       setSuggestions(results);
       setSearchLoading(false);
     }, 300);
-    return () => clearTimeout(handler);
-  }, [query]);
+    return () => {
+      clearTimeout(handler);
+      listener.then(h => h.remove()).catch(() => {});
+    };
+  }, [query, isOnline]);
 
   const handleUpdateLocation = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    // If we already detected a locked denial, go straight to app settings
-    if (deniedLocked) {
-      setIsLoading(false);
-      try {
-        await App.openUrl({ url: 'app-settings:' });
-      } catch {
-        try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
-      }
-      return;
-    }
-
     try {
-      // Check GPS first
-      const gpsOn = await isGpsEnabled();
-      if (!gpsOn) {
-        try {
-          await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings$LocationSourceSettingsActivity' });
-        } catch (e1) {
-          try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
-        }
-        setIsLoading(false);
-        return;
-      }
-
       // Request permission
       const permGranted = await requestLocationPerm();
 
       if (!permGranted) {
         setGranted(false);
         setIsLoading(false);
-        setDeniedLocked(true);
-        setError('Location permission required. The dialog may be blocked; open App Settings.');
+        setError('Location permission required. Please allow access.');
         return;
       }
 
       try {
         await requestLocationData();
         setGranted(true);
-        setDeniedLocked(false);
         setIsLoading(false);
         setTimeout(() => {
           if (onComplete) {
@@ -95,7 +93,7 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
       setIsLoading(false);
       setError('Failed to request location permission.');
     }
-  }, [deniedLocked, requestLocationPerm, requestLocationData, onBack, onComplete]);
+  }, [requestLocationPerm, requestLocationData, onBack, onComplete]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 pb-20 flex flex-col">
@@ -178,13 +176,19 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Type city or place (e.g., Rangpur)"
+                placeholder="Type city or place"
+                disabled={isOnline === false}
                 className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
               {searchLoading && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />)
               }
             </div>
+            {isOnline === false && (
+              <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive">
+                Offline. Connect to search or detect location.
+              </div>
+            )}
             {suggestions.length > 0 && (
               <div className="mt-2 rounded-lg border border-border bg-background shadow-sm overflow-hidden">
                 {suggestions.map((s, idx) => (
@@ -199,7 +203,13 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
                         country: s.country,
                         timezone: s.timezone,
                       });
-                      setTimeout(() => onBack(), 400);
+                      setTimeout(() => {
+                        if (onComplete) {
+                          onComplete();
+                        } else {
+                          onBack();
+                        }
+                      }, 400);
                     }}
                   >
                     <span className="text-sm font-medium">{s.displayName}</span>
@@ -217,13 +227,34 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={handleUpdateLocation}
-              disabled={isLoading}
+              disabled={isLoading || isOnline === false}
               whileTap={{ scale: 0.95 }}
               className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-primary to-primary/90 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <MapPin className="w-5 h-5" />
               <span>Precise Location</span>
             </motion.button>
+          )}
+
+          {isOnline === false && (
+            <div className="grid grid-cols-2 gap-3 w-full mt-3">
+              <button
+                onClick={async () => {
+                  try { await SystemSettings.openWifiSettings(); } catch {}
+                }}
+                className="py-3 px-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold shadow-lg"
+              >
+                Wi‑Fi Settings
+              </button>
+              <button
+                onClick={async () => {
+                  try { await SystemSettings.openMobileDataSettings(); } catch {}
+                }}
+                className="py-3 px-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold shadow-lg"
+              >
+                Mobile Data
+              </button>
+            </div>
           )}
 
           {/* Cancel button */}

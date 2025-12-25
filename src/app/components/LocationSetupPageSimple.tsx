@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { MapPin, Loader2 } from 'lucide-react';
-import { App } from '@capacitor/app';
 import { useApp } from '../context/AppContext';
+import { Network } from '@capacitor/network';
+import { SystemSettings } from '../../services/systemSettings';
+import { preCacheFonts, applyFontCache } from '../../services/fontCacheService';
 
 interface LocationSetupPageSimpleProps {
   onComplete: () => void;
@@ -13,6 +15,37 @@ export function LocationSetupPageSimple({ onComplete }: LocationSetupPageSimpleP
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [granted, setGranted] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [fontsCached, setFontsCached] = useState(false);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const status = await Network.getStatus();
+        setIsOnline(!!status.connected && navigator.onLine);
+      } catch {
+        setIsOnline(navigator.onLine);
+      }
+    };
+    checkStatus();
+    const listener = Network.addListener('networkStatusChange', (status) => {
+      const online = !!status.connected && navigator.onLine;
+      setIsOnline(online);
+      
+      // Pre-cache fonts when online and not yet cached
+      if (online && !fontsCached) {
+        preCacheFonts().then((success) => {
+          if (success) {
+            setFontsCached(true);
+            console.log('Fonts cached successfully during location setup');
+          }
+        });
+      }
+    });
+    return () => {
+      listener.then(h => h.remove()).catch(() => {});
+    };
+  }, [fontsCached]);
 
   const handleDetectLocation = async () => {
     setIsLoading(true);
@@ -39,14 +72,6 @@ export function LocationSetupPageSimple({ onComplete }: LocationSetupPageSimpleP
     } catch {
       setIsLoading(false);
       setError('Failed to request location permission.');
-    }
-  };
-
-  const openSystemLocationSettings = async () => {
-    try {
-      await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings$LocationSourceSettingsActivity' });
-    } catch {
-      try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
     }
   };
 
@@ -111,19 +136,36 @@ export function LocationSetupPageSimple({ onComplete }: LocationSetupPageSimpleP
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 w-full">
+          {isOnline === false && (
+            <div className="mb-4 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive">
+              Offline. Connect to detect your location.
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 w-full">
             <button
               onClick={handleDetectLocation}
+              disabled={isOnline === false}
               className="py-3 px-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white rounded-xl font-semibold shadow-lg transition-all active:scale-95"
             >
               Enable & Detect
             </button>
-            <button
-              onClick={openSystemLocationSettings}
-              className="py-3 px-4 bg-muted text-foreground rounded-xl font-semibold shadow-lg transition-all active:scale-95"
-            >
-              Open Settings
-            </button>
+            {isOnline === false && (
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <button
+                  onClick={async () => { try { await SystemSettings.openWifiSettings(); } catch {} }}
+                  className="py-3 px-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold shadow-lg"
+                >
+                  Wi‑Fi Settings
+                </button>
+                <button
+                  onClick={async () => { try { await SystemSettings.openMobileDataSettings(); } catch {} }}
+                  className="py-3 px-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold shadow-lg"
+                >
+                  Mobile Data
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Wifi, Radio } from 'lucide-react';
 import { App } from '@capacitor/app';
 import { Network } from '@capacitor/network';
+import { SystemSettings } from '../../services/systemSettings';
 
 interface InternetSetupPageProps {
   onComplete: () => void;
@@ -51,23 +52,17 @@ export function InternetSetupPageSimple({ onComplete }: InternetSetupPageProps) 
 
   const handleWifiSettings = async () => {
     try {
-      // Try to open settings on Android
-      await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.wifi.WifiSettings' });
+      await SystemSettings.openWifiSettings();
     } catch {
-      try {
-        await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' });
-      } catch {}
+      try { await App.openUrl({ url: 'app-settings:' }); } catch {}
     }
   };
 
   const handleMobileDataSettings = async () => {
     try {
-      // Try to open mobile data settings
-      await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings$DataUsageSummaryActivity' });
+      await SystemSettings.openMobileDataSettings();
     } catch {
-      try {
-        await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' });
-      } catch {}
+      try { await App.openUrl({ url: 'app-settings:' }); } catch {}
     }
   };
 
