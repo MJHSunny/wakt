@@ -21,7 +21,7 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
     private static final String TAG = "AdhanService";
     private static final String CHANNEL_ID = "adhan_notifications";
     private static final int NOTIFICATION_ID = 2000;
-    private static final int MAX_LOOPS = 3; // Play for ~3 minutes max
+    private static final int MAX_LOOPS = 1; // Play once only
 
     private MediaPlayer mediaPlayer;
     private int loopCount = 0;

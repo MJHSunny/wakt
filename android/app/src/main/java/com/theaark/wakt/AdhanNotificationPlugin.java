@@ -26,7 +26,7 @@ public class AdhanNotificationPlugin extends Plugin {
 
     private static final String TAG = "AdhanNotificationPlugin";
     private static final String CHANNEL_ID = "adhan_notifications";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
     private AlarmManager alarmManager;
     private Context context;
     private MediaPlayer mediaPlayer;

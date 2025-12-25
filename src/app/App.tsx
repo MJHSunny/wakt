@@ -26,6 +26,65 @@ import { InternetSetupPageSimple } from './components/InternetSetupPageSimple';
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [showDonation, setShowDonation] = useState(false);
+  const [navMode, setNavMode] = React.useState<'full-screen' | 'gesture' | '3-button' | 'unknown'>('unknown');
+
+  // Detect navigation mode based on system inset value
+  React.useEffect(() => {
+    const detectNavMode = () => {
+      const insetValue = getComputedStyle(document.documentElement).getPropertyValue('--android-system-bottom');
+      const insetPx = parseInt(insetValue) || 0;
+      
+      let mode: 'full-screen' | 'gesture' | '3-button' | 'unknown' = 'unknown';
+      
+      if (insetPx === 0) {
+        mode = 'full-screen';
+      } else if (insetPx > 0 && insetPx <= 30) {
+        mode = 'gesture';
+      } else if (insetPx > 30) {
+        mode = '3-button';
+      }
+      
+      setNavMode(mode);
+      console.log(`🔍 Navigation Mode Detected: ${mode} (${insetPx}px)`);
+      
+      // Store in DOM for CSS access
+      document.documentElement.setAttribute('data-nav-mode', mode);
+    };
+    
+    // Detect immediately and on interval
+    detectNavMode();
+    const interval = setInterval(detectNavMode, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Compute and set bottom safe-area inset for Android/iOS (polyfill via VisualViewport)
+  React.useEffect(() => {
+    const updateInset = () => {
+      try {
+        const vv = (window as any).visualViewport as VisualViewport | undefined;
+        if (vv) {
+          const bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+          document.documentElement.style.setProperty('--safe-area-bottom', `${bottom}px`);
+        } else {
+          // Fallback to CSS env on platforms that support it
+          document.documentElement.style.setProperty('--safe-area-bottom', 'env(safe-area-inset-bottom)');
+        }
+      } catch {
+        document.documentElement.style.setProperty('--safe-area-bottom', '0px');
+      }
+    };
+
+    updateInset();
+    const vv = (window as any).visualViewport as VisualViewport | undefined;
+    vv?.addEventListener('resize', updateInset);
+    vv?.addEventListener('scroll', updateInset);
+    window.addEventListener('orientationchange', updateInset);
+    return () => {
+      vv?.removeEventListener('resize', updateInset);
+      vv?.removeEventListener('scroll', updateInset);
+      window.removeEventListener('orientationchange', updateInset);
+    };
+  }, []);
 
   function renderPage() {
     switch (currentPage) {
@@ -244,7 +303,10 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="min-h-screen pb-20"
+          className="min-h-screen"
+          style={{ 
+            paddingBottom: '4rem'
+          }}
         >
           {/* Setup workflow - show one page at a time based on missing permissions */}
           {showSetupFlow && permissionsChecked && stepsToRun.length > 0 && (

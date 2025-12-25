@@ -1,4 +1,4 @@
-# Privacy Policy for Wakt – Muslim Prayer Times
+# Privacy Policy for Wakt – Prayer Times
 
 Last Updated: December 25, 2025
 

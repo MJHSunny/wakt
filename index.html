@@ -1,13 +1,34 @@
 
   <!DOCTYPE html>
-  <html lang="en">
+  <html lang="en" style="height: 100%; overflow: hidden;">
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
       <title>Muslim Prayer Times App</title>
       <style>
+        /* Force viewport to exclude navigation bar */
+        * {
+          box-sizing: border-box;
+        }
+        html {
+          height: 100%;
+          overflow: hidden;
+        }
+        body { 
+          margin: 0; 
+          padding: 0;
+          background: #1a1f2e;
+          overscroll-behavior: none;
+          height: 100vh;
+          height: calc(100vh - var(--android-system-bottom, 0px));
+          overflow: hidden;
+        }
+        #root {
+          height: 100%;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
         /* Splash loader */
-        body { margin: 0; background: #1a1f2e; }
         .splash {
           position: fixed;
           inset: 0;

@@ -17,13 +17,22 @@ export function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
   ];
 
   return (
-    <motion.nav
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="fixed bottom-0 left-0 right-0 bg-card/98 backdrop-blur-lg border-t border-border shadow-2xl z-50"
-    >
-      <div className="max-w-lg mx-auto px-2 py-2.5">
+    <>
+      {/* Black overlay for navigation bar area */}
+      <div 
+        className="fixed left-0 right-0 bottom-0 bg-black z-40"
+        style={{ height: 'var(--android-system-bottom, 0px)' }}
+      />
+      
+      {/* Bottom navigation */}
+      <motion.nav
+        initial={{ y: 100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="fixed left-0 right-0 bg-card border-t border-border shadow-lg z-50"
+        style={{ bottom: 'var(--android-system-bottom, 0px)' }}
+      >
+      <div className="max-w-lg mx-auto px-2 py-2">
         <div className="flex items-center justify-around">
           {navItems.map((item, index) => {
             const Icon = item.icon;
@@ -78,5 +87,6 @@ export function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
         </div>
       </div>
     </motion.nav>
+    </>
   );
 }

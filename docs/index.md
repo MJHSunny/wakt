@@ -3,7 +3,7 @@ layout: default
 title: Wakt
 ---
 
-# Wakt – Muslim Prayer Times
+# Wakt – Prayer Times
 
 Welcome. This site hosts the public privacy policy for the Wakt app.
 
