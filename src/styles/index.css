@@ -1,0 +1,58 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Hide scrollbar for all browsers while keeping scroll functionality */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  background: var(--background, #0a101a);
+  margin: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none; /* prevent edge glow / bounce */
+}
+
+/* Safe area overlay disabled: headers now draw under status bar via Capacitor StatusBar */
+/* body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: calc(env(safe-area-inset-top, 0px) * 1.25);
+  background: var(--background, #1a1f2e);
+  pointer-events: none;
+  z-index: 0;
+} */
+
+/* Keep content flush; individual screens can add their own padding if needed */
+#root {
+  padding-top: 0;
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  background: inherit; /* carry background through to screen edges */
+}
+
+/* Utility: offset the first row of page content while respecting safe areas */
+.page-first-row-offset {
+  /* Fixed gap of 24px between header and content */
+  margin-top: 24px;
+}
+
+/* Safe padding for page headers under status bar */
+.page-header-safe {
+  padding-top: max(12.5%, env(safe-area-inset-top, 0px));
+}
+
+/* Shared header background to keep pages consistent */
+.app-header {
+  /* Match Settings-style primary gradient across pages */
+  background-image: linear-gradient(135deg, var(--primary) 0%, #0A6B5D 50%, var(--primary) 100%);
+  color: var(--primary-foreground, #ffffff);
+}

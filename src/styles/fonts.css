@@ -1,0 +1,2 @@
+/* Optimized font imports - loading only essential weights with display=swap for better performance */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
