@@ -47,6 +47,18 @@ android {
             }
         }
     }
+
+    bundle {
+        density {
+            enableSplit = false
+        }
+        abi {
+            enableSplit = false
+        }
+        language {
+            enableSplit = false
+        }
+    }
     
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
