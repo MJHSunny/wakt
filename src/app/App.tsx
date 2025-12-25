@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Network } from '@capacitor/network';
 import { HomePage } from './components/HomePage';
 import { PrayerSchedulePage } from './components/PrayerSchedulePage';
 import { IslamicCalendarPage } from './components/IslamicCalendarPage';
@@ -7,6 +8,7 @@ import { QiblaPage } from './components/QiblaPage';
 import { NotificationsPage } from './components/NotificationsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { LocationSetupPage } from './components/LocationSetupPage';
+import { LocationSetupPageSimple } from './components/LocationSetupPageSimple';
 
 import { DonationPage } from './components/DonationPage';
 import { SupportPage } from './components/SupportPage';
@@ -14,10 +16,12 @@ import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsPage } from './components/TermsPage';
 import { FloatingDonateButton } from './components/FloatingDonateButton';
 import { BottomNav } from './components/BottomNav';
-import { PermissionsPageSetup } from './components/PermissionsPageSetup';
 import { TimeFormatProvider } from './context/TimeFormatContext';
 import { AppProvider } from './context/AppContext';
 import { useApp } from './context/AppContext';
+import { NotificationSetupPageSimple } from './components/NotificationSetupPageSimple';
+import { GdprSetupPageSimple } from './components/GdprSetupPageSimple';
+import { InternetSetupPageSimple } from './components/InternetSetupPageSimple';
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [showDonation, setShowDonation] = useState(false);
@@ -73,15 +77,26 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
 }) {
   const { 
     permissionsChecked,
-    permissionsFlowCompleted,
     notificationPermissionGranted,
-    countryName
+    locationPermissionGranted,
+    countryName,
+    completePermissionsFlow,
+    location,
+    prayerTimes
   } = useApp();
   
   const [showSplash, setShowSplash] = React.useState(true);
   const [showSetupFlow, setShowSetupFlow] = React.useState(false);
-  const [forceGdprSetup, setForceGdprSetup] = React.useState(false);
-  const [forceNotificationOnly, setForceNotificationOnly] = React.useState(false);
+  const [currentSetupStep, setCurrentSetupStep] = React.useState(0);
+  const [isOnline, setIsOnline] = React.useState<boolean | null>(null);
+  const [stepsToRun, setStepsToRun] = React.useState<Array<'internet' | 'location' | 'notification' | 'gdpr'>>([]);
+  const [gdprConsent, setGdprConsent] = React.useState(() => {
+    try {
+      return localStorage.getItem('gdprConsent') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const isEUUser = useMemo(() => {
     const euCountries = [
@@ -103,41 +118,54 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
   
   // Determine if GDPR consent is required and missing (EU-only)
   const gdprConsentMissing = useMemo(() => {
-    try {
-      const consent = localStorage.getItem('gdprConsent') === 'true';
-      return isEUUser && !consent;
-    } catch {
-      return isEUUser; // if storage fails, default to requiring consent in EU
-    }
-  }, [isEUUser]);
+    return isEUUser && !gdprConsent;
+  }, [isEUUser, gdprConsent]);
+  
+  // Monitor network connectivity
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const status = await Network.getStatus();
+        const connected = !!status.connected && navigator.onLine;
+        setIsOnline(connected);
+      } catch {
+        setIsOnline(navigator.onLine);
+      }
+    };
+
+    checkStatus();
+
+    // Listen for network changes
+    const unsubscribe = Network.addListener('networkStatusChange', (status) => {
+      const connected = !!status.connected && navigator.onLine;
+      setIsOnline(connected);
+    });
+
+    return () => {
+      unsubscribe.then(handler => handler.remove()).catch(() => {});
+    };
+  }, []);
   
   // Check if notifications are disabled (mandatory mode)
-  const notificationsDisabled = permissionsChecked && !notificationPermissionGranted;
-  
   // After initial permission check, decide whether to run setup
   React.useEffect(() => {
     if (!permissionsChecked) return;
+    if (showSetupFlow) return; // keep current flow steps stable once started
 
     const timer = setTimeout(() => {
       setShowSplash(false);
-      
-      // Priority 1: Notifications disabled → show notification-only setup
-      if (notificationsDisabled) {
-        setForceNotificationOnly(true);
-        setShowSetupFlow(true);
-        return;
-      }
+      const missing: Array<'internet' | 'location' | 'notification' | 'gdpr'> = [];
+      if (isOnline === false) missing.push('internet');
+      if (!locationPermissionGranted) missing.push('location');
+      if (!notificationPermissionGranted) missing.push('notification');
+      if (gdprConsentMissing) missing.push('gdpr');
 
-      // Priority 2: GDPR missing → show GDPR-only setup
-      const shouldForceGdpr = gdprConsentMissing && permissionsFlowCompleted;
-      setForceGdprSetup(shouldForceGdpr);
-      
-      // Priority 3: Flow not completed → show full setup
-      setShowSetupFlow(!permissionsFlowCompleted || shouldForceGdpr);
+      setStepsToRun(missing);
+      setShowSetupFlow(missing.length > 0);
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [permissionsChecked, permissionsFlowCompleted, gdprConsentMissing, notificationsDisabled]);
+  }, [permissionsChecked, isOnline, locationPermissionGranted, notificationPermissionGranted, gdprConsentMissing, showSetupFlow]);
 
   const splashLoaderCss = `
     .splash-loader {
@@ -207,22 +235,69 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
           transition={{ duration: 0.5 }}
           className="min-h-screen pb-20"
         >
-          {/* Setup workflow */}
-          {showSetupFlow && permissionsChecked && (
-            <PermissionsPageSetup
-              isEUUser={isEUUser}
-              notificationOnly={forceNotificationOnly}
-              startAtStep={forceGdprSetup ? 'gdpr' : 'welcome'}
-              onComplete={() => {
-                setShowSetupFlow(false);
-                setForceNotificationOnly(false);
-                setCurrentPage('home');
-              }}
-            />
+          {/* Setup workflow - show one page at a time based on missing permissions */}
+          {showSetupFlow && permissionsChecked && stepsToRun.length > 0 && (
+            <>
+              {stepsToRun[currentSetupStep] === 'internet' && (
+                <InternetSetupPageSimple 
+                  onComplete={() => {
+                    if (currentSetupStep < stepsToRun.length - 1) {
+                      setCurrentSetupStep(currentSetupStep + 1);
+                    } else {
+                      completePermissionsFlow();
+                      setShowSetupFlow(false);
+                      setCurrentPage('home');
+                    }
+                  }}
+                />
+              )}
+              
+              {stepsToRun[currentSetupStep] === 'location' && (
+                <LocationSetupPageSimple 
+                  onComplete={() => {
+                    if (currentSetupStep < stepsToRun.length - 1) {
+                      setCurrentSetupStep(currentSetupStep + 1);
+                    } else {
+                      completePermissionsFlow();
+                      setShowSetupFlow(false);
+                      setCurrentPage('home');
+                    }
+                  }}
+                />
+              )}
+              
+              {stepsToRun[currentSetupStep] === 'notification' && (
+                <NotificationSetupPageSimple 
+                  onComplete={() => {
+                    // Move to next step or complete
+                    if (currentSetupStep < stepsToRun.length - 1) {
+                      setCurrentSetupStep(currentSetupStep + 1);
+                    } else {
+                      // Last step - complete setup
+                      completePermissionsFlow();
+                      setShowSetupFlow(false);
+                      setCurrentPage('home');
+                    }
+                  }}
+                />
+              )}
+              
+              {stepsToRun[currentSetupStep] === 'gdpr' && (
+                <GdprSetupPageSimple 
+                  onComplete={() => {
+                    setGdprConsent(true);
+                    // This is the last step, complete setup
+                    completePermissionsFlow();
+                    setShowSetupFlow(false);
+                    setCurrentPage('home');
+                  }}
+                />
+              )}
+            </>
           )}
 
           {/* Main app */}
-          {!showSetupFlow && permissionsChecked && (
+          {!showSetupFlow && (
             <>
               {showDonation && <DonationPage onBack={() => setShowDonation(false)} />}
               {!showDonation && (
@@ -233,12 +308,6 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
                 </>
               )}
             </>
-          )}
-
-          {!permissionsChecked && (
-            <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-              Preparing setup…
-            </div>
           )}
         </motion.div>
       )}

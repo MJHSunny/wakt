@@ -13,9 +13,11 @@ interface PermissionsPageSetupProps {
   onComplete: () => void;
   startAtStep?: 'welcome' | 'gdpr';
   notificationOnly?: boolean; // When true, show only notification setup (mandatory blocking mode)
+  stepsToRun?: Array<'location' | 'notification' | 'gdpr'>; // When provided, show only these steps
+  onGdprAccepted?: () => void;
 }
 
-export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welcome', notificationOnly = false }: PermissionsPageSetupProps) {
+export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welcome', notificationOnly = false, stepsToRun, onGdprAccepted }: PermissionsPageSetupProps) {
   const {
     location,
     cityName,
@@ -28,7 +30,7 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
     notificationPermissionGranted,
   } = useApp();
 
-  const [currentStep, setCurrentStep] = useState(startAtStep === 'gdpr' ? 3 : 0);
+  const [currentStep, setCurrentStep] = useState(0);
   const [locationGranted, setLocationGranted] = useState(locationPermissionGranted);
   const [notificationGranted, setNotificationGranted] = useState(notificationPermissionGranted);
   const [gdprAccepted, setGdprAccepted] = useState(false);
@@ -82,39 +84,43 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
     }
 
     try {
-      const gpsOn = await isGpsEnabled();
-      if (!gpsOn) {
-        try {
-          await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings$LocationSourceSettingsActivity' });
-        } catch (e1) {
-          try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
-        }
-        setDetecting(false);
-        return;
-      }
-
+      // Request permission first (skip GPS pre-check, let location request handle it)
       const granted = await requestLocationPerm();
 
       if (!granted) {
         setLocationGranted(false);
         setDetecting(false);
         setLocationDeniedLocked(true);
-        setError('Location permission required. The dialog may be blocked; open App Settings.');
+        setError('Location permission required. Open App Settings to grant permission.');
         return;
       }
 
+      // Permission granted, now get location
       try {
+        console.log('[PermissionsPageSetup] Requesting location after permission granted');
         await requestLocation();
+        console.log('[PermissionsPageSetup] Location request succeeded');
         setLocationGranted(true);
         setLocationDeniedLocked(false);
         setDetecting(false);
-        setTimeout(() => setCurrentStep((s) => s + 1), 800);
-      } catch (locError) {
+        console.log('[PermissionsPageSetup] State updated, advancing step in 1200ms');
+        // Wait for prayer times to be calculated
+        setTimeout(() => {
+          console.log('[PermissionsPageSetup] Advancing to next step');
+          setCurrentStep((s) => {
+            console.log('[PermissionsPageSetup] Step change from', s, 'to', s + 1);
+            return s + 1;
+          });
+        }, 1200);
+      } catch (locError: any) {
+        console.error('[PermissionsPageSetup] Location request failed:', locError);
         setDetecting(false);
-        setError('Unable to get location. Please check your GPS.');
+        setError(`Unable to get location: ${locError?.message || 'Unknown error'}. Try again.`);
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('[PermissionsPageSetup] Location grant error:', err);
       setDetecting(false);
+      setError(`Failed to request location: ${err?.message || 'Unknown error'}`);
       setError('Failed to request location permission.');
     }
   };
@@ -150,101 +156,52 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
   const handleGdprAccept = () => {
     localStorage.setItem('gdprConsent', 'true');
     setGdprAccepted(true);
+    onGdprAccepted?.();
     setTimeout(() => {
       onComplete();
     }, 500);
   };
 
-  // Build steps array based on notificationOnly mode
+  const allowedSteps = React.useMemo(() => {
+    if (stepsToRun && stepsToRun.length > 0) return stepsToRun;
+    if (notificationOnly) return ['notification'];
+    return ['location', 'notification', 'gdpr'];
+  }, [notificationOnly, stepsToRun]);
+
+  // Build steps array based on configured steps
   const buildSteps = () => {
-    if (notificationOnly) {
-      // Notification-only flow: show only notification setup card
-      return [
-        {
-          id: 'notification',
-          component: (
-            <NotificationStep 
-              online={online}
-              granted={notificationGranted}
-              detecting={detecting}
-              error={notificationError}
-              onGrant={handleNotificationGrant}
-            />
-          )
-        }
-      ];
+    const stepsArr: { id: string; component: React.ReactNode }[] = [];
+    // Show welcome if all 3 permissions are missing or no specific steps configured
+    const showWelcome = !notificationOnly && (!stepsToRun || allowedSteps.length === 3);
+
+    if (!notificationOnly && online === false) {
+      stepsArr.push({
+        id: 'internet',
+        component: <InternetStep onWifi={async () => {
+          try {
+            await SystemSettings.openWifiSettings();
+          } catch {
+            try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
+          }
+        }} onMobileData={async () => {
+          try {
+            await SystemSettings.openMobileDataSettings();
+          } catch {
+            try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
+          }
+        }} />
+      });
     }
 
-    // Full flow
-    if (online === false) {
-      return [
-        {
-          id: 'internet',
-          component: <InternetStep onWifi={async () => {
-            try {
-              await SystemSettings.openWifiSettings();
-            } catch {
-              try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
-            }
-          }} onMobileData={async () => {
-            try {
-              await SystemSettings.openMobileDataSettings();
-            } catch {
-              try { await App.openUrl({ url: 'android-app://com.android.settings/com.android.settings.Settings' }); } catch {}
-            }
-          }} />
-        },
-        {
-          id: 'welcome',
-          component: <WelcomeStep online={online} onNext={() => setCurrentStep(currentStep + 1)} />
-        },
-        {
-          id: 'location',
-          component: (
-            <LocationStep 
-              online={online}
-              granted={locationGranted}
-              detecting={detecting}
-              error={error}
-              deniedLocked={locationDeniedLocked}
-              onGrant={handleLocationGrant}
-              cityName={cityName}
-              countryName={countryName}
-            />
-          )
-        },
-        {
-          id: 'notification',
-          component: (
-            <NotificationStep 
-              online={online}
-              granted={notificationGranted}
-              detecting={detecting}
-              error={notificationError}
-              onGrant={handleNotificationGrant}
-            />
-          )
-        },
-        {
-          id: 'gdpr',
-          component: (
-            <GDPRStep 
-              online={online}
-              accepted={gdprAccepted}
-              isEUUser={isEUUser}
-              onAccept={handleGdprAccept}
-            />
-          )
-        }
-      ];
-    }
-
-    return [
-      {
+    if (showWelcome) {
+      stepsArr.push({
         id: 'welcome',
-        component: <WelcomeStep online={online} onNext={() => setCurrentStep(1)} />
-      },
-      {
+        component: <WelcomeStep online={online} onNext={() => setCurrentStep((s) => s + 1)} />
+      });
+    }
+
+    if (allowedSteps.includes('location')) {
+      stepsArr.push({
         id: 'location',
         component: (
           <LocationStep 
@@ -258,8 +215,11 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
             countryName={countryName}
           />
         )
-      },
-      {
+      });
+    }
+
+    if (allowedSteps.includes('notification')) {
+      stepsArr.push({
         id: 'notification',
         component: (
           <NotificationStep 
@@ -270,8 +230,11 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
             onGrant={handleNotificationGrant}
           />
         )
-      },
-      {
+      });
+    }
+
+    if (!notificationOnly && allowedSteps.includes('gdpr') && isEUUser) {
+      stepsArr.push({
         id: 'gdpr',
         component: (
           <GDPRStep 
@@ -281,8 +244,10 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
             onAccept={handleGdprAccept}
           />
         )
-      }
-    ];
+      });
+    }
+
+    return stepsArr;
   };
 
   const steps = buildSteps();
@@ -307,7 +272,14 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
       initializedStepRef.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online, startAtStep]);
+  }, [online, startAtStep, stepsToRun, notificationOnly, isEUUser]);
+
+  // Ensure current step stays in range when steps change
+  React.useEffect(() => {
+    if (currentStep >= steps.length) {
+      setCurrentStep(Math.max(steps.length - 1, 0));
+    }
+  }, [currentStep, steps.length]);
 
   return (
     <div className="h-screen max-h-screen bg-background overflow-hidden">

@@ -7,9 +7,10 @@ import { useApp } from '../context/AppContext';
 
 interface LocationSetupPageProps {
   onBack: () => void;
+  onComplete?: () => void;
 }
 
-export function LocationSetupPage({ onBack }: LocationSetupPageProps) {
+export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps) {
   const { requestLocationPerm, requestLocation: requestLocationData, setManualLocation } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +81,11 @@ export function LocationSetupPage({ onBack }: LocationSetupPageProps) {
         setDeniedLocked(false);
         setIsLoading(false);
         setTimeout(() => {
-          onBack();
+          if (onComplete) {
+            onComplete();
+          } else {
+            onBack();
+          }
         }, 800);
       } catch (locError) {
         setIsLoading(false);
@@ -90,7 +95,7 @@ export function LocationSetupPage({ onBack }: LocationSetupPageProps) {
       setIsLoading(false);
       setError('Failed to request location permission.');
     }
-  }, [deniedLocked, requestLocationPerm, requestLocationData, onBack]);
+  }, [deniedLocked, requestLocationPerm, requestLocationData, onBack, onComplete]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 pb-20 flex flex-col">

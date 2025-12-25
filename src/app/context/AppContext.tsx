@@ -243,12 +243,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Get current location
   const requestLocation = async () => {
+    console.log('[requestLocation] Starting location request');
     setLocationLoading(true);
     setLocationError(null);
     
     try {
+      console.log('[requestLocation] Calling getCurrentLocation()');
       const loc = await getCurrentLocation();
+      console.log('[requestLocation] Got location:', loc);
       const geocode = await reverseGeocode(loc.latitude, loc.longitude);
+      console.log('[requestLocation] Got geocode:', geocode);
       const locationWithGeocode = {
         ...loc,
         city: geocode.city,
@@ -258,21 +262,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLocation(locationWithGeocode);
       setCityName(geocode.city || '');
       setCountryName(geocode.country || '');
+      console.log('[requestLocation] Location state updated:', locationWithGeocode);
       setLocationLoading(false);
     } catch (error) {
       // If location fetch fails but we have saved location, use it
       const savedLoc = getSavedLocation();
       if (savedLoc) {
-        console.log('Using saved location due to location fetch error');
+        console.log('[requestLocation] Using saved location due to location fetch error');
         setLocation(savedLoc);
         setCityName(savedLoc.city || '');
         setCountryName(savedLoc.country || '');
         if (savedLoc.timezone) setCalculationTimezone(savedLoc.timezone);
         setLocationLoading(false);
       } else {
+        console.error('[requestLocation] Location error:', error);
         setLocationError('Failed to get location. Please enable location services.');
         setLocationLoading(false);
-        console.error('Location error:', error);
       }
     }
   };
@@ -283,8 +288,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[setManualLocation] RECEIVED location:', JSON.stringify(loc));
       
-      // Clear old prayer times first to avoid stale data display
-      setPrayerTimes(null);
       setPrayerTimesLoading(true);
       
       // Save new location and update state
@@ -303,6 +306,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Set timezone override BEFORE prayer calculation
       setCalculationTimezone(withNames.timezone);
       console.log('[setManualLocation] TIMEZONE OVERRIDE SET TO:', withNames.timezone);
+      
+      // Calculate prayer times immediately (synchronously)
+      console.log('[setManualLocation] Calculating prayer times immediately');
+      const times = getPrayerTimes(
+        withNames.latitude,
+        withNames.longitude,
+        new Date(),
+        calculationMethod,
+        madhab
+      );
+      console.log('[setManualLocation] Prayer times calculated:', times);
+      setPrayerTimes(times);
+      setPrayerTimesLoading(false);
       
       // Mark flow complete if notifications are granted
       if (notificationPermissionGranted) {
