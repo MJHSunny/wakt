@@ -171,7 +171,7 @@ public class AdhanNotificationPlugin extends Plugin {
                 // Build notification
             androidx.core.app.NotificationCompat.Builder builder =
                     new androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
-                            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                            .setSmallIcon(R.mipmap.ic_launcher)
                             .setContentTitle("🕌 Time for " + prayerName)
                             .setContentText("The Adhan is playing... Tap to view")
                         .setContentIntent(fullScreenPendingIntent)
@@ -212,6 +212,7 @@ public class AdhanNotificationPlugin extends Plugin {
         String prayerName = call.getString("prayerName");
         String prayerTime = call.getString("prayerTime");
         Integer requestCode = call.getInt("requestCode");
+        String prayerTimeWindow = call.getString("prayerTimeWindow", "");
 
         if (prayerName == null || prayerTime == null || requestCode == null) {
             call.reject("Missing required parameters");
@@ -236,6 +237,7 @@ public class AdhanNotificationPlugin extends Plugin {
             Intent intent = new Intent(context, AdhanBroadcastReceiver.class);
             intent.setAction("com.theaark.wakt.ADHAN_ALARM");
             intent.putExtra("prayerName", prayerName);
+            intent.putExtra("prayerTimeWindow", prayerTimeWindow);
             // Explicitly set the component to ensure it works when app is closed
             intent.setComponent(new android.content.ComponentName(
                     context.getPackageName(),

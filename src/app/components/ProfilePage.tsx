@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Settings, MapPin, Volume2, Info } from 'lucide-react';
 import { motion } from 'motion/react';
-
+import { setStatusBarTheme } from '../services/statusBarTheme';
 export function SettingsPage() {
   const [userName, setUserName] = useState('Abdullah Khan');
   const [isEditing, setIsEditing] = useState(false);
+
+  // Profile/settings header uses the primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">{/* Header - Muslim Pro styled */}

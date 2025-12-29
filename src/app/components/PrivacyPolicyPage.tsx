@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ArrowLeft, Shield, MapPin, Bell, Radio, Volume2, Database, Info } from 'lucide-react';
 import { motion } from 'motion/react';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function PrivacyPolicyPage({ onBack }: { onBack: () => void }) {
   const effective = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Privacy header uses the primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">

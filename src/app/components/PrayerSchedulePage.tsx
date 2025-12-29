@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTimeFormat } from '../context/TimeFormatContext';
 import { useApp } from '../context/AppContext';
 import { getPrayerTimes, formatPrayerTime } from '../../services/prayerService';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function PrayerSchedulePage() {
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
@@ -20,6 +21,11 @@ export function PrayerSchedulePage() {
   // Generate weekly schedule
   const [weeklySchedule, setWeeklySchedule] = useState<any[]>([]);
   const [monthlySchedule, setMonthlySchedule] = useState<any[]>([]);
+
+  // Match status bar with the primary/strong header gradient
+  useEffect(() => {
+    setStatusBarTheme('primaryStrong');
+  }, []);
 
   useEffect(() => {
     if (!location) return;

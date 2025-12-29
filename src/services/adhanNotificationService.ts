@@ -6,6 +6,7 @@ interface AdhanNotificationPlugin {
     prayerName: string;
     prayerTime: string;
     requestCode: number;
+    prayerTimeWindow?: string;
   }): Promise<void>;
   cancelPrayerAlarm(options: {
     prayerName: string;
@@ -44,13 +45,15 @@ export const adhanNotificationService = {
   async schedulePrayerAlarm(
     prayerName: string,
     prayerTime: string,
-    requestCode: number
+    requestCode: number,
+    prayerTimeWindow?: string
   ): Promise<void> {
     try {
       await AdhanNotification.schedulePrayerAlarm({
         prayerName,
         prayerTime,
         requestCode,
+        prayerTimeWindow: prayerTimeWindow || '',
       });
       console.log(`Scheduled ${prayerName} alarm at ${prayerTime}`);
     } catch (error) {

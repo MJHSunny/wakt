@@ -3,6 +3,7 @@ import { Settings, MapPin, Volume2, Info, Heart, Clock, HelpCircle } from 'lucid
 import { useTimeFormat } from '../context/TimeFormatContext';
 import { useApp } from '../context/AppContext';
 import { calculationMethods } from '../../services/prayerService';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; onNavigate?: (page: string) => void }) {
   const { is24Hour, toggleTimeFormat } = useTimeFormat();
@@ -10,6 +11,11 @@ export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; 
   const calculationOptions = useMemo(() => calculationMethods.map((m) => m.name), []);
   const [consentActive, setConsentActive] = useState<boolean>(false);
   const [isEUUser, setIsEUUser] = useState<boolean>(false);
+
+  // Settings header uses the primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   useEffect(() => {
     try {

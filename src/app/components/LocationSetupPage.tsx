@@ -5,6 +5,7 @@ import { searchLocations, LocationSuggestion } from '../../services/locationServ
 import { Network } from '@capacitor/network';
 import { SystemSettings } from '../../services/systemSettings';
 import { useApp } from '../context/AppContext';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 interface LocationSetupPageProps {
   onBack: () => void;
@@ -20,6 +21,11 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+
+  // Location setup header uses the primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   // Debounced search
   useEffect(() => {

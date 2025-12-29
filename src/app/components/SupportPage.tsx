@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Mail, MessageCircle, Send, HelpCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import emailjs from '@emailjs/browser';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function SupportPage({ onBack }: { onBack: () => void }) {
   const [formData, setFormData] = useState({
@@ -13,6 +14,11 @@ export function SupportPage({ onBack }: { onBack: () => void }) {
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Support header uses the same primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

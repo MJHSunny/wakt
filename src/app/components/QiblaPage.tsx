@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { getQiblaInfo } from '../../services/qiblaService';
 import { Capacitor } from '@capacitor/core';
 import { QiblaDirection } from '../services/qiblaNative';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function QiblaPage() {
   const { location, cityName } = useApp();
@@ -17,6 +18,11 @@ export function QiblaPage() {
   const targetHeadingRef = useRef<number>(0);
   const displayHeadingRef = useRef<number>(0);
   const [showCalibration, setShowCalibration] = useState<boolean>(false);
+
+  // Qibla header uses the same softer primary gradient as notifications
+  useEffect(() => {
+    setStatusBarTheme('primarySoft');
+  }, []);
 
   useEffect(() => {
     if (location) {
@@ -195,7 +201,7 @@ export function QiblaPage() {
   if (!qiblaData) {
     return (
       <div className="min-h-screen bg-background pb-20 overflow-y-auto">
-        <div className="bg-gradient-to-br from-primary to-primary/80 text-white p-6">
+        <div className="bg-gradient-to-br from-primary to-primary/80 text-white p-6 page-header-safe">
           <h1 className="text-2xl mb-2 font-bold">Qibla Direction</h1>
         </div>
         <div className="p-6">
@@ -220,9 +226,9 @@ export function QiblaPage() {
       </div>
 
       {/* Main Content */}
-      <div className="p-6 page-first-row-offset">
+      <div className="p-4 sm:p-6 page-first-row-offset">
         {/* Static Qibla View (No compass) */}
-        <div className="bg-card rounded-2xl shadow-lg p-8 mb-6">
+        <div className="bg-card rounded-2xl shadow-lg p-4 sm:p-8 mb-6 max-w-full overflow-hidden">
           <div className="text-center mb-8">
             <p className="text-muted-foreground text-sm mb-2">Qibla Direction</p>
             <div className="text-4xl text-accent mb-1 font-bold">{qiblaData.bearing}°</div>
@@ -239,16 +245,16 @@ export function QiblaPage() {
             </div>
           </div>
 
-          <div className="relative w-full max-w-sm mx-auto aspect-square mb-4">
+          <div className="relative w-full max-w-sm mx-auto aspect-square mb-4 overflow-visible p-8">
             {/* Compass face (rotates with heading on native) */}
             <div
-              className="absolute inset-0"
+              className="absolute inset-8 overflow-visible"
               style={{
                 transform: `rotate(${usingNative ? -displayHeading : 0}deg)`,
                 transition: 'transform 0ms linear',
               }}
             >
-              <svg viewBox="0 0 200 200" className="w-full h-full">
+              <svg viewBox="0 0 200 200" className="w-full h-full max-w-full">
                 <defs>
                   <radialGradient id="ringGrad" cx="50%" cy="50%" r="50%">
                     <stop offset="60%" stopColor="#3a4157" />
@@ -291,12 +297,12 @@ export function QiblaPage() {
 
               {/* Qibla indicator bubble inside rotating dial (absolute bearing) */}
               <div
-                className="absolute inset-0 flex items-center justify-center transition-transform duration-75 ease-linear"
+                className="absolute inset-0 flex items-center justify-center transition-transform duration-75 ease-linear z-10"
                 style={{ transform: `rotate(${qiblaData?.bearing ?? 0}deg)`, pointerEvents: 'none' }}
               >
-                <div className="absolute -top-1.5 flex flex-col items-center gap-1">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-2" style={{ background: 'rgba(234,207,123,0.18)', borderColor: '#D4AF37', boxShadow: '0 8px 30px rgba(212,175,55,0.25)' }}>
-                    <ArrowUp className="w-8 h-8" strokeWidth={3} style={{ color: '#D4AF37' }} />
+                <div className="absolute -top-1.5 flex flex-col items-center gap-1 z-20">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-2 z-30" style={{ background: 'rgba(234,207,123,0.18)', borderColor: '#D4AF37', boxShadow: '0 8px 30px rgba(212,175,55,0.25)' }}>
+                    <ArrowUp className="w-8 h-8 z-40" strokeWidth={3} style={{ color: '#D4AF37' }} />
                   </div>
                 </div>
               </div>
@@ -307,32 +313,25 @@ export function QiblaPage() {
               </div>
             </div>
           </div>
-
-          <div className="text-center text-sm text-muted-foreground space-y-1">
-            <p>{showCalibration ? 'Calibrating: move phone in a gentle 8-shape' : (usingNative ? 'Rotate phone until arrow points to Qibla' : 'Face this absolute direction for prayer')}</p>
-            {usingNative && accuracy && (
-              <p>Accuracy: <span className="font-medium text-foreground">{accuracy.toUpperCase()}</span></p>
-            )}
-          </div>
         </div>
 
         {/* Distance and Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-card rounded-xl shadow-sm p-4 text-center border border-border">
-            <Compass className="w-6 h-6 text-primary mx-auto mb-2" />
-            <p className="text-2xl text-foreground font-bold mb-1">{qiblaData.bearing}°</p>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 max-w-full">
+          <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4 text-center border border-border min-w-0">
+            <Compass className="w-5 h-5 sm:w-6 sm:h-6 text-primary mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl text-foreground font-bold mb-1">{qiblaData.bearing}°</p>
             <p className="text-xs text-muted-foreground">Qibla Bearing</p>
           </div>
 
-          <div className="bg-card rounded-xl shadow-sm p-4 text-center border border-border">
-            <MapPin className="w-6 h-6 text-primary mx-auto mb-2" />
-            <p className="text-2xl text-foreground font-bold mb-1">{qiblaData.distance}</p>
+          <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4 text-center border border-border min-w-0">
+            <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-primary mx-auto mb-2" />
+            <p className="text-xl sm:text-2xl text-foreground font-bold mb-1">{qiblaData.distance}</p>
             <p className="text-xs text-muted-foreground">Kilometers</p>
           </div>
         </div>
 
         {/* Guidance + Calibrator */}
-        <div className="bg-card rounded-2xl shadow-lg p-5 border border-border">
+        <div className="bg-card rounded-2xl shadow-lg p-4 sm:p-5 border border-border max-w-full overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm text-muted-foreground">Compass Guidance</p>
@@ -352,68 +351,51 @@ export function QiblaPage() {
             </div>
           </div>
 
-          {/* Mini calibrator widget */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative w-14 h-14">
-              <div className="absolute inset-0 rounded-full border" style={{ borderColor: 'rgba(234,207,123,0.45)' }} />
-              <div className="absolute left-1/2 top-0 -translate-x-1/2" style={{ transformOrigin: '50% 60%' }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center border-2"
-                     style={{ borderColor: '#D4AF37', background: 'rgba(234,207,123,0.22)' }}>
-                  <ArrowUp className="w-5 h-5" strokeWidth={3} style={{ color: '#D4AF37' }} />
-                </div>
-              </div>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <p className="text-foreground font-medium mb-0.5">{showCalibration ? 'Calibrating…' : 'Calibrated / Ready'}</p>
-              <p>Wave phone in a smooth figure‑8 and rotate around all axes.</p>
-            </div>
-          </div>
-
           {/* Info graphics grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-full">
             {/* Hold flat */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/10 border border-border">
-              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-muted/10 border border-border min-w-0">
+              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground flex-shrink-0">
                 <rect x="3" y="7" width="18" height="10" rx="2" ry="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
                 <rect x="8" y="9" width="8" height="6" rx="1" fill="currentColor" opacity="0.2" />
               </svg>
-              <div className="text-xs">
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-semibold text-foreground">Hold flat</p>
                 <p className="text-muted-foreground">Keep device level for best results.</p>
               </div>
             </div>
 
             {/* Figure-8 */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/10 border border-border">
-              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-muted/10 border border-border min-w-0">
+              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground flex-shrink-0">
                 <path d="M7,12c0-2,1.6-3.5,3.5-3.5S14,10,14,12s-1.6,3.5-3.5,3.5S7,14,7,12Zm10,0c0-2-1.6-3.5-3.5-3.5S10,10,10,12s1.6,3.5,3.5,3.5S17,14,17,12Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
               </svg>
-              <div className="text-xs">
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-semibold text-foreground">Figure‑8 motion</p>
                 <p className="text-muted-foreground">Move gently for 10–15 seconds.</p>
               </div>
             </div>
 
             {/* Rotate axes */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/10 border border-border">
-              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-muted/10 border border-border min-w-0">
+              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground flex-shrink-0">
                 <path d="M12 3v18M3 12h18" stroke="currentColor" strokeWidth="1.6" />
                 <path d="M6 6l2 1-1 2M18 18l-2-1 1-2" stroke="currentColor" strokeWidth="1.6" fill="none" />
                 <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.15" />
               </svg>
-              <div className="text-xs">
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-semibold text-foreground">Rotate all axes</p>
                 <p className="text-muted-foreground">Pitch, roll, and yaw slowly.</p>
               </div>
             </div>
 
             {/* Avoid magnets */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/10 border border-border">
-              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-muted/10 border border-border min-w-0">
+              <svg width="28" height="28" viewBox="0 0 24 24" className="text-foreground flex-shrink-0">
                 <path d="M6 7a6 6 0 0 1 12 0v5a3 3 0 0 1-3 3h-1V9h4M10 15H9a3 3 0 0 1-3-3V7" fill="none" stroke="currentColor" strokeWidth="1.6" />
                 <path d="M5 5l14 14" stroke="#ef4444" strokeWidth="1.8" />
               </svg>
-              <div className="text-xs">
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-semibold text-foreground">Avoid magnets/metal</p>
                 <p className="text-muted-foreground">Keep clear of cases or objects.</p>
               </div>

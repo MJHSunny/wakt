@@ -2,13 +2,24 @@
 @import './tailwind.css';
 @import './theme.css';
 
+:root {
+  /* Default status bar backdrop color; overridden per page in JS */
+  --status-bar-color: transparent;
+}
+
 /* Hide scrollbar for all browsers while keeping scroll functionality */
 * {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 html, body {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   background: var(--background, #0a101a);
   margin: 0;
@@ -17,6 +28,14 @@ html, body {
   -ms-user-select: none;
   -webkit-touch-callout: none;
   overscroll-behavior: none; /* prevent edge glow / bounce */
+  overflow-x: hidden; /* prevent horizontal scroll */
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  scrollbar-width: none;
 }
 
 /* Safe area overlay disabled: headers now draw under status bar via Capacitor StatusBar */
@@ -39,15 +58,41 @@ html, body {
   background: inherit; /* carry background through to screen edges */
 }
 
+/* Fixed overlay behind the Android status bar, using
+   the native-reported height and a per-page color. */
+.status-bar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Use the scaled native top inset to size the
+     notification bar background area. */
+  height: var(--android-system-top, 0px);
+  background: var(--status-bar-color, transparent);
+  pointer-events: none;
+  z-index: 50;
+  display: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.status-bar-overlay--visible {
+  display: block;
+  opacity: 1;
+}
+
 /* Utility: offset the first row of page content while respecting safe areas */
 .page-first-row-offset {
   /* Fixed gap of 24px between header and content */
   margin-top: 24px;
 }
 
-/* Safe padding for page headers under status bar */
+/* Safe padding for page headers.
+   The notification bar area (scaled native top inset) is
+   covered by .status-bar-overlay; here we only add a small
+   visual top padding and rely on safe-area env where present. */
 .page-header-safe {
-  padding-top: max(12.5%, env(safe-area-inset-top, 0px));
+  padding-top: max(17.5%, env(safe-area-inset-top, 0px));
 }
 
 /* Shared header background to keep pages consistent */

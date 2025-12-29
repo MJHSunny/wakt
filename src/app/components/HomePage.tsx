@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, MapPin, Compass, Calendar, Sunrise, Sunset, Moon, Sun, CloudRain, RefreshCw } from 'lucide-react';
+import { Clock, MapPin, Compass, Calendar, Sunrise, Sunset, Moon, Sun, CloudRain, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTimeFormat } from '../context/TimeFormatContext';
 import { useApp } from '../context/AppContext';
-import { formatPrayerTime, getCurrentPrayerWindowInfo, getPrayerWindows, getProhibitedTimeInfoClean, getAdjustedCurrentPrayerCountdown, getPrayerTimes, calculateTahajjud } from '../../services/prayerService';
+import { formatPrayerTime, getCurrentPrayerWindowInfo, getPrayerWindows, getPrayerStatus, getAdjustedCurrentPrayerCountdown, getPrayerTimes, calculateTahajjud } from '../../services/prayerService';
 import { getHijriCalendarService } from '../../services/hijriCalendarService';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
@@ -14,7 +15,16 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const { prayerTimes, location, cityName, countryName, calculationMethod, madhab, scheduleData } = useApp();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [hijriDate, setHijriDate] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const { formatTime, is24Hour } = useTimeFormat();
+  
+  // Demo watch - hardcoded to test specific times (e.g., 8:48 AM)
+  // Uncomment below and set the time for testing
+  // const demoTime = new Date();
+  // demoTime.setHours(8, 48, 0, 0);
+  
+  // Use real current time
+  const demoTime = currentTime;
 
   // Initialize Hijri Calendar Service
   const hijriService = getHijriCalendarService();
@@ -25,6 +35,11 @@ export function HomePage({ onNavigate }: HomePageProps) {
       setHijriDate(`${hijri.day} ${hijri.monthName} ${hijri.year} AH`);
     }
   }, [hijriService]);
+
+  // Ensure native status bar matches the dark home header when this page is active
+  useEffect(() => {
+    setStatusBarTheme('homeDark');
+  }, []);
 
   useEffect(() => {
     // Load initial Hijri date
@@ -94,10 +109,10 @@ export function HomePage({ onNavigate }: HomePageProps) {
     // Round today's Fajr before using it in comparisons
     const fajrRounded = new Date(Math.round(prayerTimes.fajr.getTime() / 60000) * 60000);
     
-    // Calculate schedule from prayer times
-    const schedule = prayerTimes ? (() => {
+    // Calculate TODAY's schedule (for header, current prayer status, etc.)
+    const todaySchedule = prayerTimes ? (() => {
       // Compute previous and next day's times for correct night window around midnight
-      const previous = new Date(currentTime);
+      const previous = new Date(demoTime);
       previous.setDate(previous.getDate() - 1);
       const previousPrayerTimes = getPrayerTimes(
         location.latitude,
@@ -107,7 +122,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         madhab
       );
 
-      const tomorrow = new Date(currentTime);
+      const tomorrow = new Date(demoTime);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowPrayerTimes = getPrayerTimes(
         location.latitude,
@@ -118,20 +133,25 @@ export function HomePage({ onNavigate }: HomePageProps) {
       );
       
       // Pick the correct night: if we're before today's Fajr, use yesterday's Isha → today's Fajr. Otherwise today's Isha → tomorrow's Fajr.
-      const isBeforeFajr = currentTime < prayerTimes.fajr;
+      const isBeforeFajr = demoTime < prayerTimes.fajr;
       const nightIsha = isBeforeFajr ? previousPrayerTimes.isha : prayerTimes.isha;
       const nightFajr = isBeforeFajr ? prayerTimes.fajr : tomorrowPrayerTimes.fajr;
 
       const nightDuration = nightFajr.getTime() - nightIsha.getTime();
       const oneThird = nightDuration / 3;
-      const tahajjudStartMs = nightFajr.getTime() - oneThird;
+      
+      // Apply 20-minute preparation buffer before Fajr
+      const fajrPreparationBuffer = 20 * 60 * 1000; // 20 minutes
+      const adjustedFajrTime = new Date(nightFajr.getTime() - fajrPreparationBuffer);
+      
+      const tahajjudStartMs = adjustedFajrTime.getTime() - oneThird;
       
       // Round to nearest minute to avoid rounding discrepancies
       const tahajjudStartRounded = new Date(Math.round(tahajjudStartMs / 60000) * 60000);
-      const tahajjudEndRounded = new Date(Math.round(nightFajr.getTime() / 60000) * 60000);
+      const tahajjudEndRounded = new Date(Math.round(adjustedFajrTime.getTime() / 60000) * 60000);
       
       return {
-        date: currentTime.toLocaleDateString('en-US', { 
+        date: demoTime.toLocaleDateString('en-US', { 
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 
@@ -151,7 +171,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         sunset: formatPrayerTime(prayerTimes.sunset, false),
       };
     })() : {
-      date: currentTime.toLocaleDateString('en-US', { 
+      date: demoTime.toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
@@ -170,10 +190,103 @@ export function HomePage({ onNavigate }: HomePageProps) {
       sunrise: '--:--',
       sunset: '--:--',
     };
+    
+    // Get prayer times for SELECTED date (for prayer times display section only)
+    const selectedPrayerTimes = getPrayerTimes(
+      location.latitude,
+      location.longitude,
+      selectedDate,
+      calculationMethod,
+      madhab
+    );
+    
+    // Calculate schedule for SELECTED date (only for display section)
+    const selectedSchedule = selectedPrayerTimes ? (() => {
+      // Compute previous and next day's times for correct night window around midnight
+      const previous = new Date(selectedDate);
+      previous.setDate(previous.getDate() - 1);
+      const previousPrayerTimes = getPrayerTimes(
+        location.latitude,
+        location.longitude,
+        previous,
+        calculationMethod,
+        madhab
+      );
+
+      const tomorrow = new Date(selectedDate);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowPrayerTimes = getPrayerTimes(
+        location.latitude,
+        location.longitude,
+        tomorrow,
+        calculationMethod,
+        madhab
+      );
+      
+      // For tahajjud calculation on selected date
+      const isBeforeFajr = demoTime < selectedPrayerTimes.fajr;
+      const nightIsha = isBeforeFajr ? previousPrayerTimes.isha : selectedPrayerTimes.isha;
+      const nightFajr = isBeforeFajr ? selectedPrayerTimes.fajr : tomorrowPrayerTimes.fajr;
+
+      const nightDuration = nightFajr.getTime() - nightIsha.getTime();
+      const oneThird = nightDuration / 3;
+      
+      // Apply 20-minute preparation buffer before Fajr
+      const fajrPreparationBuffer = 20 * 60 * 1000; // 20 minutes
+      const adjustedFajrTime = new Date(nightFajr.getTime() - fajrPreparationBuffer);
+      
+      const tahajjudStartMs = adjustedFajrTime.getTime() - oneThird;
+      
+      // Round to nearest minute to avoid rounding discrepancies
+      const tahajjudStartRounded = new Date(Math.round(tahajjudStartMs / 60000) * 60000);
+      const tahajjudEndRounded = new Date(Math.round(adjustedFajrTime.getTime() / 60000) * 60000);
+      
+      // Check if selected date is today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(selectedDate);
+      selected.setHours(0, 0, 0, 0);
+      const isToday = today.getTime() === selected.getTime();
+      
+      // Format date title
+      let dateTitle = '';
+      if (isToday) {
+        dateTitle = "Today's Prayer Times";
+      } else {
+        dateTitle = selectedDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        }) + ' Prayer Times';
+      }
+      
+      return {
+        dateTitle,
+        prayers: [
+          { name: 'Fajr', time: formatPrayerTime(selectedPrayerTimes.fajr, false) },
+          { name: 'Dhuhr', time: formatPrayerTime(selectedPrayerTimes.dhuhr, false) },
+          { name: 'Asr', time: formatPrayerTime(selectedPrayerTimes.asr, false) },
+          { name: 'Maghrib', time: formatPrayerTime(selectedPrayerTimes.maghrib, false) },
+          { name: 'Isha', time: formatPrayerTime(selectedPrayerTimes.isha, false) },
+        ],
+        tahajjudStart: formatPrayerTime(tahajjudStartRounded, false),
+        tahajjudEnd: formatPrayerTime(tahajjudEndRounded, false),
+      };
+    })() : {
+      dateTitle: "Prayer Times",
+      prayers: [
+        { name: 'Fajr', time: '--:--' },
+        { name: 'Dhuhr', time: '--:--' },
+        { name: 'Asr', time: '--:--' },
+        { name: 'Maghrib', time: '--:--' },
+        { name: 'Isha', time: '--:--' },
+      ],
+      tahajjudStart: '--:--',
+      tahajjudEnd: '--:--',
+    };
 
   // Get current prayer using adjusted countdown respecting prohibitions
   const getCurrentPrayer = () => {
-    const now = currentTime;
+    const now = demoTime;
 
     const adjusted = getAdjustedCurrentPrayerCountdown(
       location.latitude,
@@ -200,7 +313,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         return {
-          prayer: { name: 'Isha', time: schedule.prayers[4].time },
+          prayer: { name: 'Isha', time: todaySchedule.prayers[4].time },
           endsIn: `${hours}h ${minutes}m`,
           isProhibited: false,
         };
@@ -214,7 +327,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       const hoursPF = Math.floor(diffMs / (1000 * 60 * 60));
       const minutesPF = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       return {
-        prayer: { name: 'Isha', time: schedule.prayers[4].time },
+        prayer: { name: 'Isha', time: todaySchedule.prayers[4].time },
         endsIn: `${hoursPF}h ${minutesPF}m`,
         isProhibited: false,
         resumeAt: undefined,
@@ -223,7 +336,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
     const prayerMap: { [key: string]: number } = { Fajr: 0, Dhuhr: 1, Asr: 2, Maghrib: 3, Isha: 4 };
     const prayerIndex = prayerMap[adjusted.name];
-    const timeStr = prayerIndex !== undefined ? schedule.prayers[prayerIndex]?.time : '--:--';
+    const timeStr = prayerIndex !== undefined ? todaySchedule.prayers[prayerIndex]?.time : '--:--';
     const diff = Math.max(0, adjusted.countdownMs ?? 0);
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -251,8 +364,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
     // Find next prayer after current time
     for (const prayer of prayerList) {
-      if (prayer.time > currentTime) {
-        const diff = prayer.time.getTime() - currentTime.getTime();
+      if (prayer.time > demoTime) {
+        const diff = prayer.time.getTime() - demoTime.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         return {
@@ -273,14 +386,21 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
   const nextPrayer = getNextPrayer();
 
-  // Determine prohibited time status
-  const prohibitedInfo = getProhibitedTimeInfoClean(
+  // Determine prayer status using new logic
+  const prayerStatus = getPrayerStatus(
     location.latitude,
     location.longitude,
-    currentTime,
+    demoTime,
     calculationMethod,
     madhab
   );
+  
+  // For backward compatibility with UI - only show prohibited for STRICT_FORBIDDEN
+  const prohibitedInfo = {
+    isProhibited: prayerStatus.status === 'STRICT_FORBIDDEN',
+    label: prayerStatus.label,
+    endsAt: prayerStatus.endsAt,
+  };
 
   // Get dynamic card style based on current time
   const getTimeBasedCardStyle = () => {
@@ -291,7 +411,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       minute: '2-digit',
       hour12: false,
       timeZone: tz,
-    }).formatToParts(currentTime);
+    }).formatToParts(demoTime);
     const hourPart = parts.find(p => p.type === 'hour')?.value || '0';
     const minutePart = parts.find(p => p.type === 'minute')?.value || '0';
     const hour = parseInt(hourPart, 10);
@@ -299,10 +419,10 @@ export function HomePage({ onNavigate }: HomePageProps) {
     const timeInMinutes = hour * 60 + minute;
     
     // Parse prayer times to get sunrise and sunset in minutes (already timezone-adjusted strings)
-    const sunriseTime = schedule.sunrise.split(':');
+    const sunriseTime = todaySchedule.sunrise.split(':');
     const sunriseMinutes = parseInt(sunriseTime[0]) * 60 + parseInt(sunriseTime[1]);
     
-    const sunsetTime = schedule.sunset.split(':');
+    const sunsetTime = todaySchedule.sunset.split(':');
     const sunsetMinutes = parseInt(sunsetTime[0]) * 60 + parseInt(sunsetTime[1]);
     
     // Dawn (before sunrise)
@@ -427,10 +547,10 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
           {/* Date info with elegant styling */}
           <div className="mb-4 sm:mb-6 text-center">
-            <p className="text-white/95 font-semibold mb-1 text-sm sm:text-base">{schedule.date}</p>
+            <p className="text-white/95 font-semibold mb-1 text-sm sm:text-base">{todaySchedule.date}</p>
             <div className="flex items-center justify-center gap-2">
               <div className="h-px w-6 sm:w-8 bg-gradient-to-r from-transparent to-accent/50" />
-              <p className="text-accent/90 text-[10px] sm:text-xs font-medium">{schedule.hijriDate}</p>
+              <p className="text-accent/90 text-[10px] sm:text-xs font-medium">{todaySchedule.hijriDate}</p>
               <div className="h-px w-6 sm:w-8 bg-gradient-to-l from-transparent to-accent/50" />
             </div>
           </div>
@@ -445,7 +565,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
                 <div className="text-center w-full">
                   <p className="text-white/60 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide mb-0.5">Sunrise</p>
-                  <p className="text-white font-bold text-[13px] sm:text-sm">{schedule.sunrise}</p>
+                  <p className="text-white font-bold text-[13px] sm:text-sm">{todaySchedule.sunrise}</p>
                 </div>
               </div>
             </div>
@@ -453,27 +573,27 @@ export function HomePage({ onNavigate }: HomePageProps) {
             {/* Current Time - Center and larger */}
             <div className="bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl py-3 sm:py-4 px-2 sm:px-3 border border-white/20 shadow-2xl">
               <div className="flex flex-col items-center justify-center h-full w-full gap-0.5">
-                {/* Time */}
+                {/* Real Current Time */}
                 <div className="text-xl sm:text-2xl md:text-3xl font-light tracking-wide text-white text-center w-full">
-                  {(() => {
-                    const tzStr = location?.timezone ? location.timezone : 'DEVICE_DEFAULT';
-                    console.log('[HomePage] Formatting time. TZ Override:', tzStr, 'Location:', location?.city, location?.country);
-                    const formatted = currentTime.toLocaleTimeString('en-US', { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: !is24Hour,
-                      timeZone: location?.timezone || undefined
-                    });
-                    console.log('[HomePage] Formatted time:', formatted, 'with TZ:', tzStr);
-                    return formatted;
-                  })()}
+                  {demoTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: !is24Hour,
+                    timeZone: location?.timezone || undefined
+                  })}
                 </div>
-                {/* Now label */}
+                {/* Current time label */}
                 <div className="flex items-center justify-center gap-1 text-white/60 text-[8px] sm:text-[9px] mt-0.5">
                   <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                   <span className="font-semibold uppercase tracking-wider">Now</span>
                 </div>
+                
+                {/* Demo Time Testing (Uncomment to enable)
+                <div className="text-yellow-400/80 text-[8px] sm:text-[9px] mt-2 font-mono">
+                  Demo: Uncomment demoTime variable above to test
+                </div>
+                */}
               </div>
             </div>
 
@@ -485,7 +605,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
                 <div className="text-center w-full">
                   <p className="text-white/60 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide mb-0.5">Sunset</p>
-                  <p className="text-white font-bold text-[13px] sm:text-sm">{schedule.sunset}</p>
+                  <p className="text-white font-bold text-[13px] sm:text-sm">{todaySchedule.sunset}</p>
                 </div>
               </div>
             </div>
@@ -531,7 +651,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   {prohibitedInfo.endsAt && (
                     <div className="text-white text-3xl sm:text-4xl font-bold leading-none drop-shadow-lg">
                       {(() => {
-                        const diff = Math.max(0, prohibitedInfo.endsAt.getTime() - currentTime.getTime());
+                        const diff = Math.max(0, prohibitedInfo.endsAt.getTime() - demoTime.getTime());
                         const hours = Math.floor(diff / (1000 * 60 * 60));
                         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                         return `${hours}h ${minutes}m`;
@@ -629,7 +749,38 @@ export function HomePage({ onNavigate }: HomePageProps) {
         {/* Prayer Times List - Enhanced with gradients and icons */}
         <div className="px-3 sm:px-4 mb-4 sm:mb-6">
         <div className="text-center mb-4 sm:mb-5">
-          <h3 className="text-foreground text-lg sm:text-xl font-bold tracking-tight mb-1">Today's Prayer Times</h3>
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-2">
+            {/* Previous day button */}
+            <button
+              onClick={() => {
+                const prevDate = new Date(selectedDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                setSelectedDate(prevDate);
+              }}
+              className="flex-shrink-0 p-2 sm:p-2.5 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Previous day"
+            >
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+            
+            {/* Title */}
+            <h3 className="text-foreground text-lg sm:text-xl font-bold tracking-tight">
+              {selectedSchedule.dateTitle}
+            </h3>
+            
+            {/* Next day button */}
+            <button
+              onClick={() => {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                setSelectedDate(nextDate);
+              }}
+              className="flex-shrink-0 p-2 sm:p-2.5 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Next day"
+            >
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          </div>
           <div className="flex items-center justify-center gap-2">
             <div className="h-0.5 w-10 sm:w-12 bg-gradient-to-r from-transparent via-primary to-transparent rounded-full" />
             <div className="w-1.5 h-1.5 bg-accent rounded-full" />
@@ -639,7 +790,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         
         {/* First row - 3 prayers (Fajr, Dhuhr, Asr) */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-2 sm:mb-3">
-          {schedule.prayers.slice(0, 3).map((prayer, index) => {
+          {selectedSchedule.prayers.slice(0, 3).map((prayer, index) => {
             return (
               <div
                 key={prayer.name}
@@ -666,7 +817,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
         {/* Second row - 2 prayers (Maghrib, Isha) */}
         <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
-          {schedule.prayers.slice(3, 5).map((prayer, index) => {
+          {selectedSchedule.prayers.slice(3, 5).map((prayer, index) => {
             return (
               <div
                 key={prayer.name}
@@ -713,7 +864,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
               {/* Time window */}
               <div className="flex-shrink-0 text-right">
                 <p className="text-lg sm:text-2xl font-bold text-white">
-                  {formatTime(schedule.tahajjudStart)} - {formatTime(schedule.tahajjudEnd)}
+                  {formatTime(selectedSchedule.tahajjudStart)} - {formatTime(selectedSchedule.tahajjudEnd)}
                 </p>
               </div>
             </div>

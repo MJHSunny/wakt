@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Star, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { importantDates } from '../utils/prayerData';
 import { getHijriCalendarService } from '../../services/hijriCalendarService';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function IslamicCalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(0); // 0 = current month, 1 = next, -1 = prev
@@ -14,6 +15,11 @@ export function IslamicCalendarPage() {
   const [manualFetching, setManualFetching] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const hijriService = getHijriCalendarService();
+
+  // Use primary header theme
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {

@@ -27,6 +27,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [showDonation, setShowDonation] = useState(false);
   const [navMode, setNavMode] = React.useState<'full-screen' | 'gesture' | '3-button' | 'unknown'>('unknown');
+  const [hasScrolled, setHasScrolled] = React.useState(false);
 
   // Detect navigation mode based on system inset value
   React.useEffect(() => {
@@ -55,6 +56,25 @@ export default function App() {
     detectNavMode();
     const interval = setInterval(detectNavMode, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Show the status bar overlay only after the user starts scrolling
+  React.useEffect(() => {
+    const target: any = document.getElementById('root') || window;
+
+    const handleScroll = () => {
+      const y = target === window
+        ? (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0)
+        : (target.scrollTop || 0);
+      const scrolled = y > 0;
+      setHasScrolled(prev => (prev === scrolled ? prev : scrolled));
+    };
+
+    handleScroll();
+    target.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      target.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Compute and set bottom safe-area inset for Android/iOS (polyfill via VisualViewport)
@@ -116,6 +136,8 @@ export default function App() {
   return (
     <AppProvider>
       <TimeFormatProvider>
+        {/* Fixed web-side backdrop behind the Android status bar */}
+        <div className={hasScrolled ? 'status-bar-overlay status-bar-overlay--visible' : 'status-bar-overlay'} />
         <PermissionsGate 
           showDonation={showDonation} 
           setShowDonation={setShowDonation} 
@@ -133,7 +155,7 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
   setShowDonation: (v: boolean) => void; 
   setCurrentPage: (v: string) => void;
   currentPage: string;
-  renderPage: () => JSX.Element;
+  renderPage: () => React.ReactElement;
 }) {
   const { 
     permissionsChecked,
@@ -303,7 +325,7 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="min-h-screen"
+          className="min-h-screen w-full max-w-full overflow-x-hidden"
           style={{ 
             paddingBottom: '4rem'
           }}

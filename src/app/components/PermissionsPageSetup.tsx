@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { MapPin, Bell, Check, ChevronRight, Shield, CheckCircle2, Info, Loader2, Radio, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Network } from '@capacitor/network';
@@ -6,6 +6,7 @@ import { App } from '@capacitor/app';
 import { SystemSettings } from '../../services/systemSettings';
 import { isGpsEnabled } from '../../services/locationService';
 import { useApp } from '../context/AppContext';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 // Removed alert-dialog for GPS enable to avoid conflicting popup
 
 interface PermissionsPageSetupProps {
@@ -41,6 +42,11 @@ export function PermissionsPageSetup({ isEUUser, onComplete, startAtStep = 'welc
   // Removed GPS dialog states
   const [online, setOnline] = useState<boolean | null>(null);
   const initializedStepRef = useRef(false);
+
+  // Permissions onboarding uses the primary gradient-style header
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   // Live online/offline detection
   React.useEffect(() => {

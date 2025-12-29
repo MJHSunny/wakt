@@ -49,12 +49,14 @@ public class AdhanBroadcastReceiver extends BroadcastReceiver {
                 case "com.theaark.wakt.ADHAN_ALARM":
                     // Wake up and send notification at prayer time
                     String prayerName = intent.getStringExtra("prayerName");
+                    String prayerTimeWindow = intent.getStringExtra("prayerTimeWindow");
                     int requestCode = intent.getIntExtra("requestCode", 100);
                     if (DEBUG) Log.d(TAG, "⏰ Adhan alarm triggered for: " + prayerName);
                     
                     // Start service to handle the alarm
                     Intent serviceIntent = new Intent(context, AdhanAlarmService.class);
                     serviceIntent.putExtra("prayerName", prayerName);
+                    serviceIntent.putExtra("prayerTimeWindow", prayerTimeWindow);
                     serviceIntent.putExtra("requestCode", requestCode);
                     context.startService(serviceIntent);
                     break;
@@ -81,86 +83,6 @@ public class AdhanBroadcastReceiver extends BroadcastReceiver {
             if (wakeLock.isHeld()) {
                 wakeLock.release();
             }
-        }
-    }
-
-    /**
-     * Send high-priority Adhan notification with sound
-     * The sound plays from the NotificationChannel (set in AdhanNotificationPlugin)
-     */
-    private void sendAdhanNotification(Context context, String prayerName) {
-        if (prayerName == null) {
-            prayerName = "Prayer";
-        }
-        
-        if (DEBUG) Log.d(TAG, "Creating notification for: " + prayerName);
-        
-        // Reschedule this prayer for tomorrow (24 hours from now)
-        rescheduleAlarmForTomorrow(context, prayerName);
-
-        try {
-            // Intent to open full-screen Adhan Activity when notification is tapped
-            Intent openIntent = new Intent(context, AdhanActivity.class);
-            openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            openIntent.putExtra("openFrom", "adhan_notification");
-            openIntent.putExtra("prayerName", prayerName);
-
-            PendingIntent openPendingIntent = PendingIntent.getActivity(
-                    context,
-                    0,
-                    openIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-
-            // Dismiss action - stops the notification
-            Intent dismissIntent = new Intent(context, AdhanBroadcastReceiver.class);
-            dismissIntent.setAction("com.theaark.wakt.DISMISS_ADHAN");
-            
-            PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    1001,
-                    dismissIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-
-                // Build high-priority notification
-            // Sound is set in the channel (IMPORTANCE_HIGH + custom sound URI)
-            androidx.core.app.NotificationCompat.Builder builder =
-                    new androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
-                            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                            .setContentTitle("🕌 Time for " + prayerName)
-                            .setContentText("Allahu Akbar - The Adhan is playing")
-                            .setContentIntent(openPendingIntent)
-                        .setFullScreenIntent(openPendingIntent, true)
-                            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
-                            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
-                            .setAutoCancel(true)
-                            .setOngoing(false)
-                            .setVibrate(new long[]{0, 1000, 500, 1000})
-                            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-                            .addAction(
-                                    android.R.drawable.ic_menu_close_clear_cancel,
-                                    "Dismiss",
-                                    dismissPendingIntent
-                            )
-                            .addAction(
-                                    android.R.drawable.ic_menu_view,
-                                    "Open",
-                                    openPendingIntent
-                            );
-
-            NotificationManager notificationManager =
-                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            
-            if (notificationManager != null) {
-                notificationManager.notify(NOTIFICATION_ID, builder.build());
-                if (DEBUG) Log.d(TAG, "✅ Adhan notification displayed successfully for " + prayerName);
-            } else {
-                Log.e(TAG, "NotificationManager is null");
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "❌ Error sending Adhan notification", e);
         }
     }
 

@@ -4,12 +4,19 @@ import { Capacitor } from '@capacitor/core';
 import { adhanNotificationService } from '../../services/adhanNotificationService';
 import { useApp } from '../context/AppContext';
 import { getTodayPrayerTimes } from '../utils/prayerData';
-import { formatPrayerTime } from '../../services/prayerService';
+import { formatPrayerTime, getPrayerWindows } from '../../services/prayerService';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function NotificationsPage() {
-  const { prayerTimes } = useApp();
+  const { prayerTimes, location, calculationMethod, madhab } = useApp();
+
+  // Use softer primary theme matching this header
+  useEffect(() => {
+    setStatusBarTheme('primarySoft');
+  }, []);
 
   const STORAGE_KEY = 'wakt_notification_toggles';
+  const ADHAN_STORAGE_KEY = 'wakt_adhan_toggles';
 
   const loadSavedToggles = () => {
     try {
@@ -36,7 +43,33 @@ export function NotificationsPage() {
     } as const;
   };
 
+  const loadSavedAdhanToggles = () => {
+    try {
+      const raw = localStorage.getItem(ADHAN_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          fajr: parsed.fajr ?? false,
+          dhuhr: parsed.dhuhr ?? false,
+          asr: parsed.asr ?? false,
+          maghrib: parsed.maghrib ?? false,
+          isha: parsed.isha ?? false,
+        } as typeof adhanEnabled;
+      }
+    } catch (err) {
+      console.error('Failed to load adhan toggles', err);
+    }
+    return {
+      fajr: false,
+      dhuhr: false,
+      asr: false,
+      maghrib: false,
+      isha: false,
+    } as const;
+  };
+
   const [notifications, setNotifications] = useState(loadSavedToggles);
+  const [adhanEnabled, setAdhanEnabled] = useState(loadSavedAdhanToggles);
 
   const [adhanSound, setAdhanSound] = useState(() => {
     try {
@@ -63,7 +96,16 @@ export function NotificationsPage() {
 
   const mainPrayers = useMemo(() => {
     // Build from real prayer times when available; fallback to mock data
-    if (prayerTimes) {
+    if (prayerTimes && location) {
+      const windows = getPrayerWindows(
+        location.latitude,
+        location.longitude,
+        new Date(),
+        calculationMethod || 'Muslim World League',
+        madhab || 'Shafi'
+      );
+
+      const use12h = localStorage.getItem('use12hFormat') === 'true';
       const ordered = [
         { key: 'fajr' as const, name: 'Fajr', date: prayerTimes.fajr },
         { key: 'dhuhr' as const, name: 'Dhuhr', date: prayerTimes.dhuhr },
@@ -74,10 +116,20 @@ export function NotificationsPage() {
 
       return ordered.map((p, idx) => {
         const time24 = formatPrayerTime(p.date, false); // HH:mm 24h for scheduling
+        const window = windows[p.name];
+        
+        let timeWindowStr = '';
+        if (window) {
+          const startStr = formatPrayerTime(window.start, use12h);
+          const endStr = formatPrayerTime(window.end, use12h);
+          timeWindowStr = `${startStr} - ${endStr}`;
+        }
+        
         return {
           key: p.key,
           name: p.name,
           time24,
+          timeWindow: timeWindowStr,
           requestCode: 100 + idx,
         };
       });
@@ -90,9 +142,10 @@ export function NotificationsPage() {
         key: p.name.toLowerCase() as keyof typeof notifications,
         name: p.name,
         time24: p.time,
+        timeWindow: '',
         requestCode: 100 + idx,
       }));
-  }, [prayerTimes]);
+  }, [prayerTimes, location, calculationMethod, madhab]);
 
   const toggleNotification = (prayer: keyof typeof notifications) => {
     const nextEnabled = !notifications[prayer];
@@ -109,6 +162,22 @@ export function NotificationsPage() {
       return updated;
     });
 
+    // If turning off notification, also disable adhan
+    if (!nextEnabled && adhanEnabled[prayer]) {
+      setAdhanEnabled((prev) => {
+        const updated = {
+          ...prev,
+          [prayer]: false,
+        };
+        try {
+          localStorage.setItem(ADHAN_STORAGE_KEY, JSON.stringify(updated));
+        } catch (err) {
+          console.error('Failed to persist adhan toggles', err);
+        }
+        return updated;
+      });
+    }
+
     const prayerMeta = mainPrayers.find((p) => p.key === prayer);
     if (!prayerMeta) return;
 
@@ -117,7 +186,7 @@ export function NotificationsPage() {
     if (nextEnabled) {
       // Turning on: schedule for today at listed time
       adhanNotificationService
-        .schedulePrayerAlarm(prayerMeta.name, prayerMeta.time24, prayerMeta.requestCode)
+        .schedulePrayerAlarm(prayerMeta.name, prayerMeta.time24, prayerMeta.requestCode, prayerMeta.timeWindow)
         .catch((err) => console.error('Failed to schedule alarm', err));
     } else {
       // Turning off: cancel existing alarm
@@ -127,13 +196,32 @@ export function NotificationsPage() {
     }
   };
 
+  const toggleAdhan = (prayer: keyof typeof adhanEnabled) => {
+    // Only allow toggling adhan if notification is enabled
+    if (!notifications[prayer]) return;
+
+    const nextEnabled = !adhanEnabled[prayer];
+    setAdhanEnabled((prev) => {
+      const updated = {
+        ...prev,
+        [prayer]: nextEnabled,
+      };
+      try {
+        localStorage.setItem(ADHAN_STORAGE_KEY, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to persist adhan toggles', err);
+      }
+      return updated;
+    });
+  };
+
   // Re-schedule alarms if times change while toggles remain on (e.g., after refresh/location change)
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     mainPrayers.forEach((prayer) => {
       if (notifications[prayer.key]) {
         adhanNotificationService
-          .schedulePrayerAlarm(prayer.name, prayer.time24, prayer.requestCode)
+          .schedulePrayerAlarm(prayer.name, prayer.time24, prayer.requestCode, prayer.timeWindow)
           .catch((err) => console.error('Failed to schedule alarm', err));
       } else {
         // Ensure cancelled if user turned it off and times changed
@@ -324,24 +412,43 @@ export function NotificationsPage() {
             {mainPrayers.map((prayer) => (
               <div
                 key={prayer.key}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 gap-3"
               >
                 <div>
                   <p className="text-foreground font-medium">{prayer.name}</p>
                   <p className="text-xs text-muted-foreground">{prayer.time24}</p>
                 </div>
-                <button
-                  onClick={() => toggleNotification(prayer.key)}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                    notifications[prayer.key] ? 'bg-primary' : 'bg-muted'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                      notifications[prayer.key] ? 'translate-x-6' : 'translate-x-0.5'
+                <div className="flex gap-2">
+                  {/* Notification Toggle */}
+                  <button
+                    onClick={() => toggleNotification(prayer.key)}
+                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                      notifications[prayer.key]
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-muted text-muted-foreground'
                     }`}
-                  />
-                </button>
+                    title="Toggle notification alert"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span className="text-xs font-medium">Notify</span>
+                  </button>
+
+                  {/* Adhan Toggle - Only visible if notification is on */}
+                  {notifications[prayer.key] && (
+                    <button
+                      onClick={() => toggleAdhan(prayer.key)}
+                      className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                        adhanEnabled[prayer.key]
+                          ? 'bg-green-500 text-white'
+                          : 'bg-muted text-muted-foreground hover:bg-muted-foreground/20'
+                      }`}
+                      title="Toggle adhan sound"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      <span className="text-xs font-medium">Adhan</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

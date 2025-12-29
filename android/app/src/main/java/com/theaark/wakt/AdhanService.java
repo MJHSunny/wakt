@@ -27,6 +27,7 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
     private int loopCount = 0;
     private String prayerName = "";
     private String soundName = "";
+    private String prayerTimeWindow = ""; // Prayer time window (e.g., "05:30 - 06:45")
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -35,6 +36,16 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
         if (intent != null) {
             prayerName = intent.getStringExtra("prayerName");
             soundName = intent.getStringExtra("soundName");
+            prayerTimeWindow = intent.getStringExtra("prayerTimeWindow");
+        }
+
+        // Check if adhan is enabled for this prayer
+        if (!isAdhanEnabled(prayerName)) {
+            Log.d(TAG, "Adhan is disabled for " + prayerName + ", skipping audio playback");
+            // Still show notification, just don't play sound
+            startForeground(NOTIFICATION_ID, createNotification());
+            stopSelf();
+            return START_NOT_STICKY;
         }
 
         // Ensure alarm volume is at least audible; if muted, lift to 1 step, otherwise respect user volume
@@ -148,15 +159,21 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
                 dismissIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
         );
+        
+        // Display prayer time window
+        String contentText = prayerTimeWindow != null && !prayerTimeWindow.isEmpty() 
+            ? prayerTimeWindow 
+            : "";
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("🕌 Time for " + prayerName)
+            .setContentText(contentText)
             .setContentIntent(dismissPendingIntent)
             .setDeleteIntent(dismissPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(false)
+            .setAutoCancel(true)
             .setOngoing(false)
             .setVibrate(new long[]{0, 500, 250, 500})
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -187,5 +204,44 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    /**
+     * Check if adhan sound is enabled for a specific prayer
+     * Maps prayer name to the stored preference
+     */
+    private boolean isAdhanEnabled(String prayerName) {
+        try {
+            android.content.SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                    "CapacitorStorage", MODE_PRIVATE);
+            
+            // Get the stored adhan toggles JSON string
+            String adhanToggles = prefs.getString("wakt_adhan_toggles", "");
+            if (adhanToggles.isEmpty()) {
+                // If no preferences stored yet, default to false (disabled for adhan)
+                Log.d(TAG, "No adhan preferences found, defaulting to false (disabled)");
+                return false;
+            }
+
+            // Parse the JSON to extract the prayer key
+            String prayerKey = prayerName.toLowerCase()
+                    .replace(" ", "")
+                    .replace("(test)", "")
+                    .trim();
+            
+            // Try to parse JSON - look for "prayerKey": true/false
+            if (adhanToggles.contains("\"" + prayerKey + "\":")) {
+                boolean isEnabled = adhanToggles.contains("\"" + prayerKey + "\":true");
+                Log.d(TAG, "Adhan for " + prayerKey + " is " + (isEnabled ? "enabled" : "disabled"));
+                return isEnabled;
+            }
+
+            // If preference not found, default to false (disabled for adhan)
+            Log.d(TAG, "No adhan preference found for " + prayerKey + ", defaulting to false");
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking adhan preference", e);
+            return false; // Default to disabled on error
+        }
     }
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- API 23+: Keep status bar icons light (white) regardless of theme -->
+    <!-- API 23+: transparent status bar with light icons for full-screen content -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
@@ -9,7 +9,7 @@
         <item name="android:navigationBarColor">#FF000000</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <!-- Critical: disable light status bar mode (dark icons) so icons stay white -->
+        <!-- Keep icons light (white) when status bar is shown transiently -->
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>

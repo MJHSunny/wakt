@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, CreditCard, DollarSign, Check, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
+import { setStatusBarTheme } from '../services/statusBarTheme';
 
 interface DonationPageProps {
   onBack: () => void;
@@ -17,6 +18,11 @@ export function DonationPage({ onBack }: DonationPageProps) {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const presetAmounts = [5, 10, 25, 50, 100];
+
+  // Donation header uses the primary gradient
+  useEffect(() => {
+    setStatusBarTheme('primary');
+  }, []);
 
   const handleDonate = () => {
     setShowSuccess(true);
