@@ -206,7 +206,7 @@ export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; 
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Version</span>
-              <span className="text-foreground font-medium">1.0.3</span>
+              <span className="text-foreground font-medium">1.0.4</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Update</span>
