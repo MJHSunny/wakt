@@ -96,6 +96,15 @@ export async function schedulePrayerNotifications(
   settings: NotificationSettings
 ): Promise<void> {
   try {
+    // On native (Android/iOS), we already rely on the
+    // AdhanNotificationPlugin + AlarmManager path for exact
+    // prayer-time notifications. Skip Capacitor
+    // LocalNotifications entirely there to avoid duplication
+    // and keep one single notification system.
+    if (isNative()) {
+      return;
+    }
+
     // Cancel existing notifications first
     await cancelAllPrayerNotifications();
 
