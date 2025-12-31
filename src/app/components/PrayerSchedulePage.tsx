@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTimeFormat } from '../context/TimeFormatContext';
+import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { getPrayerTimes, formatPrayerTime } from '../../services/prayerService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
@@ -11,6 +12,7 @@ export function PrayerSchedulePage() {
   const [dailyDayIndex, setDailyDayIndex] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const { is24Hour, formatTime } = useTimeFormat();
+  const { theme } = useTheme();
   const { 
     location, 
     prayerTimes, 
@@ -104,19 +106,19 @@ export function PrayerSchedulePage() {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary/90 text-white p-6 page-header-safe">
+      <div className={`bg-gradient-to-br p-6 page-header-safe ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary to-primary/90 text-white'}`}>
         <div className="mb-6 text-center">
-          <h1 className="text-4xl font-light tracking-tight">Prayer Schedule</h1>
+          <h1 className="text-4xl font-light tracking-tight text-white">Prayer Schedule</h1>
         </div>
 
         {/* View toggle */}
-        <div className="flex gap-2 bg-white/10 rounded-xl p-1.5 backdrop-blur-sm">
+        <div className={`flex gap-2 rounded-xl p-1.5 backdrop-blur-sm ${theme === 'light' ? 'bg-white/20' : 'bg-white/10'}`}>
           {['daily', 'weekly', 'monthly'].map((viewType) => (
             <button
               key={viewType}
               onClick={() => setView(viewType as any)}
               className={`flex-1 py-2.5 px-4 rounded-lg transition-all font-medium ${
-                view === viewType ? 'bg-white text-primary shadow-lg' : 'text-white'
+                view === viewType ? (theme === 'light' ? 'bg-black text-white shadow-lg' : 'bg-white text-primary shadow-lg') : (theme === 'light' ? 'text-white' : 'text-white')
               }`}
             >
               {viewType.charAt(0).toUpperCase() + viewType.slice(1)}
@@ -132,14 +134,14 @@ export function PrayerSchedulePage() {
             {weeklySchedule.map((day, index) => (
               <div
                 key={index}
-                className={`rounded-2xl shadow-md overflow-hidden transition-all ${
+                className={`rounded-2xl overflow-hidden transition-all ${
                   day.isToday 
-                    ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-l-4 border-primary' 
-                    : 'bg-card'
+                    ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-l-4 border-primary shadow-[0_8px_16px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)]' 
+                    : 'bg-card shadow-[0_8px_16px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)]'
                 }`}
               >
                   <div className={`p-5 border-b border-border ${
-                    day.isToday ? 'bg-primary/10' : 'bg-muted/30'
+                    day.isToday ? 'bg-primary/10' : 'bg-primary/5'
                   }`}>
                     <h4 className={`font-semibold text-lg tracking-tight ${
                       day.isToday ? 'text-primary font-bold' : 'text-card-foreground'
@@ -173,7 +175,7 @@ export function PrayerSchedulePage() {
         )}
 
         {view === 'daily' && weeklySchedule.length > 0 && (
-          <div className="bg-gradient-to-br from-card to-card/80 rounded-2xl shadow-xl p-6">
+          <div className="bg-gradient-to-br from-card to-card/80 rounded-2xl shadow-[0_12px_24px_rgba(0,0,0,0.15),0_4px_8px_rgba(0,0,0,0.1)] p-6">
             <div className="flex items-center justify-between mb-8">
               <button
                 onClick={() => setDailyDayIndex(Math.max(0, dailyDayIndex - 1))}
@@ -198,7 +200,7 @@ export function PrayerSchedulePage() {
               {weeklySchedule[dailyDayIndex]?.prayers.map((prayer, index) => (
                 <div
                   key={prayer.name}
-                  className="flex items-center justify-between p-5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl"
+                  className="flex items-center justify-between p-5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
                 >
                     <div>
                       <h4 className="text-card-foreground font-semibold text-lg tracking-tight">{prayer.name}</h4>
@@ -211,7 +213,7 @@ export function PrayerSchedulePage() {
           )}
 
         {view === 'monthly' && monthlySchedule.length > 0 && (
-          <div className="bg-gradient-to-br from-card to-card/80 rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-br from-card to-card/80 rounded-2xl shadow-[0_12px_24px_rgba(0,0,0,0.15),0_4px_8px_rgba(0,0,0,0.1)] overflow-hidden">
               {/* Month Header */}
               <div className="bg-primary/10 p-6 border-b border-border">
                 <div className="flex items-center justify-between">
@@ -263,9 +265,9 @@ export function PrayerSchedulePage() {
                 {monthlySchedule.map((dayData, i) => (
                   <div
                     key={i}
-                    className={`grid grid-cols-6 gap-2 p-3 rounded-xl transition-colors relative ${
+                    className={`grid grid-cols-6 gap-2 p-3 rounded-xl transition-colors relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] ${
                       dayData.isToday
-                        ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-l-4 border-primary font-bold' 
+                        ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-l-4 border-primary font-bold shadow-[0_4px_12px_rgba(0,0,0,0.08)]' 
                         : 'hover:bg-muted/30'
                     }`}
                   >

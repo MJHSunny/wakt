@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { User, Settings, MapPin, Volume2, Info } from 'lucide-react';
 import { motion } from 'motion/react';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+import { useTheme } from '../context/ThemeContext';
+
 export function SettingsPage() {
+  const { theme } = useTheme();
   const [userName, setUserName] = useState('Abdullah Khan');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -13,7 +16,7 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">{/* Header - Muslim Pro styled */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-12 overflow-hidden page-header-safe text-center">
+      <div className={`relative bg-gradient-to-br p-6 pb-12 overflow-hidden page-header-safe text-center ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         {/* Islamic pattern overlay */}
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -26,9 +29,9 @@ export function SettingsPage() {
         </div>
 
         <div className="relative z-10">
-          <p className="text-white/70 text-xs font-medium mb-1 uppercase tracking-wider">Settings</p>
-          <h1 className="text-3xl font-light tracking-tight">Settings</h1>
-          <p className="text-white/80 text-sm mt-1">Manage your preferences</p>
+          <p className="text-xs font-medium mb-1 uppercase tracking-wider text-white/70">Settings</p>
+          <h1 className="text-3xl font-light tracking-tight text-white">Settings</h1>
+          <p className="text-sm mt-1 text-white/80">Manage your preferences</p>
         </div>
       </div>
 

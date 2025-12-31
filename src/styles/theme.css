@@ -1,6 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Default (dark) theme tokens */
   --font-size: 16px;
   --background: #1a1f2e;
   --foreground: #E8EEF1;
@@ -39,6 +40,38 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+}
+
+/* Light theme overrides – applied when html has class "light-theme" */
+:root.light-theme {
+  --background: #f5f7fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0D7C66;
+  --primary-foreground: #ffffff;
+  --secondary: #e5edf5;
+  --secondary-foreground: #0f172a;
+  --muted: #e5edf5;
+  --muted-foreground: #4b5563;
+  --accent: #D4AF37;
+  --accent-foreground: #111827;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --border: rgba(15, 23, 42, 0.08);
+  --input: #ffffff;
+  --input-background: #ffffff;
+  --switch-background: #e5edf5;
+  --sidebar: #e5edf5;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0D7C66;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e5edf5;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: rgba(15, 23, 42, 0.08);
+  --sidebar-ring: #0D7C66;
 }
 
 @theme inline {

@@ -2,8 +2,10 @@ import React, { useEffect } from 'react';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+import { useTheme } from '../context/ThemeContext';
 
 export function TermsPage({ onBack }: { onBack: () => void }) {
+  const { theme } = useTheme();
   const effective = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   // Terms header uses the primary gradient
@@ -14,7 +16,7 @@ export function TermsPage({ onBack }: { onBack: () => void }) {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-12 overflow-hidden page-header-safe">
+      <div className={`relative bg-gradient-to-br p-6 pb-12 overflow-hidden page-header-safe ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
             <pattern id="terms-pattern" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse">
@@ -26,13 +28,7 @@ export function TermsPage({ onBack }: { onBack: () => void }) {
         </div>
 
         <div className="relative z-10">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-white/90 hover:text-white transition-colors mb-4"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Settings</span>
-          </button>
+
           <div className="text-center">
             <h1 className="text-3xl font-light tracking-tight">Terms of Service</h1>
             <p className="text-white/80 text-sm mt-1">Effective {effective}</p>

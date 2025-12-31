@@ -63,6 +63,7 @@ interface AppContextType {
   // Location name
   cityName: string;
   countryName: string;
+  countryCode: string;
   
   // Pre-calculated schedule data (calculated during splash screen)
   scheduleData: any;
@@ -106,6 +107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const [cityName, setCityName] = useState('');
   const [countryName, setCountryName] = useState('');
+  const [countryCode, setCountryCode] = useState('');
   
   // Pre-calculated schedule (computed once during splash screen, then reused)
   const [scheduleData, setScheduleData] = useState<any>(null);
@@ -166,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLocation(savedLocation);
       setCityName(savedLocation.city || '');
       setCountryName(savedLocation.country || '');
+      setCountryCode(savedLocation.countryCode || '');
       if (savedLocation.timezone) {
         setCalculationTimezone(savedLocation.timezone);
       }
@@ -178,11 +181,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...freshLocation,
           city: geocode.city,
           country: geocode.country,
+          countryCode: geocode.countryCode,
         };
         saveLocation(locationWithGeocode);
         setLocation(locationWithGeocode);
         setCityName(geocode.city || '');
         setCountryName(geocode.country || '');
+        setCountryCode(geocode.countryCode || '');
         // No timezone from reverse geocode; keep device timezone
         console.log('[LocationGating] Initial location saved');
       } catch (locError) {
@@ -256,12 +261,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const locationWithGeocode = {
         ...loc,
         city: geocode.city,
-        country: geocode.country
+        country: geocode.country,
+        countryCode: geocode.countryCode,
       };
       saveLocation(locationWithGeocode);
       setLocation(locationWithGeocode);
       setCityName(geocode.city || '');
       setCountryName(geocode.country || '');
+      setCountryCode(geocode.countryCode || '');
       console.log('[requestLocation] Location state updated:', locationWithGeocode);
       setLocationLoading(false);
     } catch (error) {
@@ -272,6 +279,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setLocation(savedLoc);
         setCityName(savedLoc.city || '');
         setCountryName(savedLoc.country || '');
+        setCountryCode(savedLoc.countryCode || '');
         if (savedLoc.timezone) setCalculationTimezone(savedLoc.timezone);
         setLocationLoading(false);
       } else {
@@ -302,6 +310,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       setCityName(withNames.city || '');
       setCountryName(withNames.country || '');
+      setCountryCode(withNames.countryCode || '');
+      setCountryCode(withNames.countryCode || '');
       
       // Set timezone override BEFORE prayer calculation
       setCalculationTimezone(withNames.timezone);
@@ -546,6 +556,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMadhab,
     cityName,
     countryName,
+    countryCode,
     scheduleData,
   };
 

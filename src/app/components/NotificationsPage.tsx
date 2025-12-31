@@ -1,18 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, Volume2, Play } from 'lucide-react';
+import { Bell, Volume2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { adhanNotificationService } from '../../services/adhanNotificationService';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { getTodayPrayerTimes } from '../utils/prayerData';
 import { formatPrayerTime, getPrayerWindows } from '../../services/prayerService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function NotificationsPage() {
   const { prayerTimes, location, calculationMethod, madhab } = useApp();
+  const { theme } = useTheme();
 
-  // Use softer primary theme matching this header
+  // Use the standard teal primary status bar like other pages
   useEffect(() => {
-    setStatusBarTheme('primarySoft');
+    setStatusBarTheme('primary');
   }, []);
 
   const STORAGE_KEY = 'wakt_notification_toggles';
@@ -90,9 +93,54 @@ export function NotificationsPage() {
     }
   }, []);
 
-  const [isTesting, setIsTesting] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [batteryOptDisabled, setBatteryOptDisabled] = useState<boolean | null>(null);
+
+  // Keep native (Android) CapacitorStorage in sync with in-app toggles so
+  // AdhanAlarmService/AdhanService can read the latest values.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const sync = async () => {
+      try {
+        await Preferences.set({ key: STORAGE_KEY, value: JSON.stringify(notifications) });
+      } catch (err) {
+        console.error('Failed to sync notification toggles to native storage', err);
+      }
+    };
+
+    sync();
+  }, [notifications]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const sync = async () => {
+      try {
+        await Preferences.set({ key: ADHAN_STORAGE_KEY, value: JSON.stringify(adhanEnabled) });
+      } catch (err) {
+        console.error('Failed to sync adhan toggles to native storage', err);
+      }
+    };
+
+    sync();
+  }, [adhanEnabled]);
+
+  // Persist selected Adhan sound into CapacitorStorage so the
+  // native notification channel and services can read it.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const syncSound = async () => {
+      try {
+        await Preferences.set({ key: 'adhanSound', value: adhanSound });
+      } catch (err) {
+        console.error('Failed to sync adhan sound to native storage', err);
+      }
+    };
+
+    syncSound();
+  }, [adhanSound]);
 
   const mainPrayers = useMemo(() => {
     // Build from real prayer times when available; fallback to mock data
@@ -279,6 +327,9 @@ export function NotificationsPage() {
   const handleRequestBatteryOptimization = async () => {
     try {
       await adhanNotificationService.requestDisableBatteryOptimization();
+      alert(
+        'Battery optimization settings screen opened. Please set Wakt to "Don\'t optimize" or "Unrestricted" and then return to the app.'
+      );
       // Recheck after a longer delay to allow system to register the change
       setTimeout(async () => {
         const isDisabled = await adhanNotificationService.isBatteryOptimizationDisabled();
@@ -286,6 +337,9 @@ export function NotificationsPage() {
       }, 2000);
     } catch (err) {
       console.error('Failed to request battery optimization', err);
+      alert(
+        'Could not open the battery optimization settings automatically. Please go to System Settings → Apps → Wakt → Battery and set it to "Don\'t optimize" / "Unrestricted".'
+      );
     }
   };
 
@@ -341,24 +395,6 @@ export function NotificationsPage() {
     }
   };
 
-  const testAdhan = async () => {
-    setIsTesting(true);
-    try {
-      if (!Capacitor.isNativePlatform()) {
-        alert('Test Adhan only works on Android');
-        return;
-      }
-      await adhanNotificationService.triggerAdhanNow('Fajr (Test)');
-      alert('🔔 Adhan notification triggered! You should hear the Adhan sound and see a notification banner.');
-    } catch (error) {
-      console.error('Adhan error:', error);
-      alert('Failed to trigger Adhan');
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-
   // Show loading if no prayer times yet
   if (!prayerTimes) {
     return (
@@ -373,9 +409,9 @@ export function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
-      <div className="bg-gradient-to-br from-primary to-primary/80 text-white p-6 page-header-safe text-center">
-        <h1 className="text-3xl mb-2 font-light">Notifications & Settings</h1>
-        <p className="text-white/80 text-sm">Manage prayer alerts and preferences</p>
+      <div className={`bg-gradient-to-br text-center p-6 page-header-safe ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary to-primary/80 text-white'}`}>
+        <h1 className="text-3xl mb-2 font-light text-white">Notifications & Settings</h1>
+        <p className="text-sm text-white/80">Manage prayer alerts and preferences</p>
       </div>
 
       <div className="p-4 page-first-row-offset space-y-6">
@@ -480,30 +516,6 @@ export function NotificationsPage() {
             {isPlayingPreview ? 'Stop Preview' : 'Play Sound Preview'}
           </button>
         </div>
-
-        {/** Test Adhan Button - Hidden for production */}
-        {false && (
-          <div className="bg-card rounded-xl shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Play className="w-6 h-6 text-primary" />
-              <h3 className="text-card-foreground font-semibold">Test Adhan Notification</h3>
-            </div>
-
-            <p className="text-sm text-muted-foreground mb-4">
-              Test the Adhan notification with sound. A high-priority notification will appear at the top of your screen. Tap it to see the full-screen Adhan display.
-            </p>
-
-            <button 
-              onClick={testAdhan}
-              disabled={isTesting}
-              className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Play className="w-5 h-5" />
-              {isTesting ? 'Triggering...' : 'Trigger Test Adhan Now'}
-            </button>
-
-          </div>
-        )}
       </div>
     </div>
   );

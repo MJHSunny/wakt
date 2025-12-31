@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Heart, CreditCard, DollarSign, Check, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+import { useTheme } from '../context/ThemeContext';
 
 interface DonationPageProps {
   onBack: () => void;
 }
 
 export function DonationPage({ onBack }: DonationPageProps) {
+  const { theme } = useTheme();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal' | null>(null);
@@ -69,7 +71,7 @@ export function DonationPage({ onBack }: DonationPageProps) {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-12 overflow-hidden page-header-safe">
+      <div className={`relative bg-gradient-to-br p-6 pb-12 overflow-hidden page-header-safe text-center ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         {/* Islamic pattern overlay */}
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -82,18 +84,11 @@ export function DonationPage({ onBack }: DonationPageProps) {
         </div>
 
         <div className="relative z-10">
-          <button
-            onClick={onBack}
-            className="mb-4 flex items-center gap-2 text-white/80 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm">Back</span>
-          </button>
           <div className="flex items-center gap-3 mb-2 justify-center">
             <Heart className="w-8 h-8 text-accent" fill="currentColor" />
-            <h1 className="text-3xl font-light tracking-tight">Support Our Work</h1>
+            <h1 className="text-3xl font-light tracking-tight text-white">Support Our Work</h1>
           </div>
-          <p className="text-white/80 text-sm text-center">Help us keep this app free for everyone</p>
+          <p className="text-sm text-center text-white/80">Help us keep this app free for everyone</p>
         </div>
       </div>
 

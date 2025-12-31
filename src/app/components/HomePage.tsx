@@ -2,29 +2,76 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, MapPin, Compass, Calendar, Sunrise, Sunset, Moon, Sun, CloudRain, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTimeFormat } from '../context/TimeFormatContext';
+import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { formatPrayerTime, getCurrentPrayerWindowInfo, getPrayerWindows, getPrayerStatus, getAdjustedCurrentPrayerCountdown, getPrayerTimes, calculateTahajjud } from '../../services/prayerService';
 import { getHijriCalendarService } from '../../services/hijriCalendarService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+
+// Convert a two-letter country code (or common country name) to its emoji flag; returns empty string if invalid
+const countryCodeToFlag = (input?: string) => {
+  if (!input) return '';
+  const trimmed = input.trim();
+
+  // Quick map for common country names → codes
+  const nameToCode: Record<string, string> = {
+    'united states': 'US',
+    'united kingdom': 'GB',
+    'great britain': 'GB',
+    'saudi arabia': 'SA',
+    'united arab emirates': 'AE',
+    'uae': 'AE',
+    'qatar': 'QA',
+    'kuwait': 'KW',
+    'oman': 'OM',
+    'bahrain': 'BH',
+    'pakistan': 'PK',
+    'india': 'IN',
+    'indonesia': 'ID',
+    'malaysia': 'MY',
+    'singapore': 'SG',
+    'bangladesh': 'BD',
+    'turkey': 'TR',
+    'egypt': 'EG',
+    'nigeria': 'NG',
+    'south africa': 'ZA',
+    'australia': 'AU',
+    'canada': 'CA',
+    'germany': 'DE',
+    'france': 'FR',
+    'spain': 'ES',
+    'italy': 'IT',
+    'brazil': 'BR',
+    'mexico': 'MX',
+  };
+
+  const alpha2 = (() => {
+    if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toUpperCase();
+    const mapped = nameToCode[trimmed.toLowerCase()];
+    return mapped ? mapped.toUpperCase() : '';
+  })();
+
+  if (!alpha2) return '';
+
+  return String.fromCodePoint(
+    ...alpha2.split('').map((char) => 127397 + char.charCodeAt(0))
+  );
+};
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
-  const { prayerTimes, location, cityName, countryName, calculationMethod, madhab, scheduleData } = useApp();
+  const { prayerTimes, location, cityName, countryName, countryCode, calculationMethod, madhab, scheduleData } = useApp();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [hijriDate, setHijriDate] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { formatTime, is24Hour } = useTimeFormat();
-  
-  // Demo watch - hardcoded to test specific times (e.g., 8:48 AM)
-  // Uncomment below and set the time for testing
-  // const demoTime = new Date();
-  // demoTime.setHours(8, 48, 0, 0);
-  
-  // Use real current time
-  const demoTime = currentTime;
+  const { theme } = useTheme();
+  const countryFlag = countryCodeToFlag(countryCode || countryName);
+
+  // No analog watch calculations needed; digital time used below.
 
   // Initialize Hijri Calendar Service
   const hijriService = getHijriCalendarService();
@@ -36,10 +83,10 @@ export function HomePage({ onNavigate }: HomePageProps) {
     }
   }, [hijriService]);
 
-  // Ensure native status bar matches the dark home header when this page is active
+  // Update status bar color when theme changes
   useEffect(() => {
-    setStatusBarTheme('homeDark');
-  }, []);
+    setStatusBarTheme(theme === 'light' ? 'primarySoft' : 'homeDark');
+  }, [theme]);
 
   useEffect(() => {
     // Load initial Hijri date
@@ -108,11 +155,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
   try {
     // Round today's Fajr before using it in comparisons
     const fajrRounded = new Date(Math.round(prayerTimes.fajr.getTime() / 60000) * 60000);
+    const afterMidnightBeforeFajr = currentTime < fajrRounded;
     
     // Calculate TODAY's schedule (for header, current prayer status, etc.)
     const todaySchedule = prayerTimes ? (() => {
       // Compute previous and next day's times for correct night window around midnight
-      const previous = new Date(demoTime);
+      const previous = new Date(currentTime);
       previous.setDate(previous.getDate() - 1);
       const previousPrayerTimes = getPrayerTimes(
         location.latitude,
@@ -122,7 +170,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         madhab
       );
 
-      const tomorrow = new Date(demoTime);
+      const tomorrow = new Date(currentTime);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowPrayerTimes = getPrayerTimes(
         location.latitude,
@@ -133,7 +181,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       );
       
       // Pick the correct night: if we're before today's Fajr, use yesterday's Isha → today's Fajr. Otherwise today's Isha → tomorrow's Fajr.
-      const isBeforeFajr = demoTime < prayerTimes.fajr;
+      const isBeforeFajr = currentTime < prayerTimes.fajr;
       const nightIsha = isBeforeFajr ? previousPrayerTimes.isha : prayerTimes.isha;
       const nightFajr = isBeforeFajr ? prayerTimes.fajr : tomorrowPrayerTimes.fajr;
 
@@ -151,7 +199,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       const tahajjudEndRounded = new Date(Math.round(adjustedFajrTime.getTime() / 60000) * 60000);
       
       return {
-        date: demoTime.toLocaleDateString('en-US', { 
+        date: currentTime.toLocaleDateString('en-US', { 
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 
@@ -171,7 +219,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         sunset: formatPrayerTime(prayerTimes.sunset, false),
       };
     })() : {
-      date: demoTime.toLocaleDateString('en-US', { 
+      date: currentTime.toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
@@ -224,7 +272,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       );
       
       // For tahajjud calculation on selected date
-      const isBeforeFajr = demoTime < selectedPrayerTimes.fajr;
+      const isBeforeFajr = currentTime < selectedPrayerTimes.fajr;
       const nightIsha = isBeforeFajr ? previousPrayerTimes.isha : selectedPrayerTimes.isha;
       const nightFajr = isBeforeFajr ? selectedPrayerTimes.fajr : tomorrowPrayerTimes.fajr;
 
@@ -286,7 +334,18 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
   // Get current prayer using adjusted countdown respecting prohibitions
   const getCurrentPrayer = () => {
-    const now = demoTime;
+    const now = currentTime;
+
+    const formatEndsIn = (diffMs: number) => {
+      const diff = Math.max(0, diffMs);
+      const totalMinutes = Math.floor(diff / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours <= 0) {
+        return `${minutes}m`;
+      }
+      return `${hours}h ${minutes}m`;
+    };
 
     const adjusted = getAdjustedCurrentPrayerCountdown(
       location.latitude,
@@ -310,25 +369,21 @@ export function HomePage({ onNavigate }: HomePageProps) {
       // Pre-Fajr treated as Isha current
       if (now < windowsMap['Fajr'].start) {
         const diff = windowsMap['Fajr'].start.getTime() - now.getTime();
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         return {
           prayer: { name: 'Isha', time: todaySchedule.prayers[4].time },
-          endsIn: `${hours}h ${minutes}m`,
+          endsIn: formatEndsIn(diff),
           isProhibited: false,
         };
       }
       return null;
     }
 
-    // Explicit pre-Fajr handling: show Isha ending at Fajr start (use rounded Fajr for comparison)
+    // After midnight but before Fajr: keep Isha as current; countdown to Fajr
     if (now < fajrRounded) {
       const diffMs = fajrRounded.getTime() - now.getTime();
-      const hoursPF = Math.floor(diffMs / (1000 * 60 * 60));
-      const minutesPF = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       return {
         prayer: { name: 'Isha', time: todaySchedule.prayers[4].time },
-        endsIn: `${hoursPF}h ${minutesPF}m`,
+        endsIn: formatEndsIn(diffMs),
         isProhibited: false,
         resumeAt: undefined,
       };
@@ -337,10 +392,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
     const prayerMap: { [key: string]: number } = { Fajr: 0, Dhuhr: 1, Asr: 2, Maghrib: 3, Isha: 4 };
     const prayerIndex = prayerMap[adjusted.name];
     const timeStr = prayerIndex !== undefined ? todaySchedule.prayers[prayerIndex]?.time : '--:--';
-    const diff = Math.max(0, adjusted.countdownMs ?? 0);
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const endsIn = `${hours}h ${minutes}m`;
+    const diff = adjusted.countdownMs ?? 0;
+    const endsIn = formatEndsIn(diff);
 
     return {
       prayer: { name: adjusted.name, time: timeStr },
@@ -364,8 +417,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
     // Find next prayer after current time
     for (const prayer of prayerList) {
-      if (prayer.time > demoTime) {
-        const diff = prayer.time.getTime() - demoTime.getTime();
+      if (prayer.time > currentTime) {
+        const diff = prayer.time.getTime() - currentTime.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         return {
@@ -390,7 +443,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const prayerStatus = getPrayerStatus(
     location.latitude,
     location.longitude,
-    demoTime,
+    currentTime,
     calculationMethod,
     madhab
   );
@@ -411,7 +464,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       minute: '2-digit',
       hour12: false,
       timeZone: tz,
-    }).formatToParts(demoTime);
+    }).formatToParts(currentTime);
     const hourPart = parts.find(p => p.type === 'hour')?.value || '0';
     const minutePart = parts.find(p => p.type === 'minute')?.value || '0';
     const hour = parseInt(hourPart, 10);
@@ -516,100 +569,120 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">{/* Header with elegant gradient and pattern */}
-      <div className="relative bg-gradient-to-br from-[#0a1612] via-[#0d1a15] to-[#0a1612] text-white p-4 sm:p-6 pb-12 sm:pb-16 overflow-hidden page-header-safe">
+      <div
+        className={`relative bg-gradient-to-br ${
+          theme === 'light'
+            ? 'from-[#bef264] via-[#65a30d] to-[#365314] text-black'
+            : 'from-[#0a1612] via-[#0d1a15] to-[#0a1612] text-white'
+        } p-4 sm:p-6 pb-12 sm:pb-16 overflow-hidden page-header-safe`}
+      >
         {/* Decorative gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
         
         {/* Subtle pattern overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-          backgroundSize: '32px 32px'
-        }} />
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.6) 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
         
         {/* Glowing accent circle */}
         <div className="absolute -top-20 -right-20 w-48 h-48 sm:w-64 sm:h-64 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-20 -left-20 w-48 h-48 sm:w-64 sm:h-64 bg-accent/5 rounded-full blur-3xl" />
 
         <div className="relative z-10">
-          <div className="text-center mb-4 sm:mb-6">
-            <p className="text-white/60 text-[10px] sm:text-xs font-semibold mb-2 uppercase tracking-widest">Prayer Times</p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-white via-white to-white/80 bg-clip-text text-transparent mb-3 sm:mb-4">
-              Assalamu Alaikum
-            </h1>
-            <button
-              onClick={() => onNavigate('location-setup')}
-              className="inline-flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-white/90 bg-white/10 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 rounded-full border border-white/20 shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-200 cursor-pointer active:scale-95"
+          {/* Two-Column Cards Section - Inside Header */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            {/* Card 1 - List with Icons */}
+            <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-border/50 shadow-lg aspect-square flex flex-col items-start justify-center gap-3 ${
+              theme === 'light' ? 'bg-white' : 'bg-card/60'
+            }`}>
+              {/* Location */}
+              <button
+                onClick={() => onNavigate('location-setup')}
+                className={`flex items-center gap-2 text-[0.75rem] transition-all duration-200 cursor-pointer active:scale-95 w-full ${
+                  theme === 'light'
+                    ? 'text-black hover:opacity-80'
+                    : 'text-white/90 hover:text-white'
+                }`}
+              >
+                <MapPin className={`w-4 h-4 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-accent'}`} />
+                <span className="truncate flex items-center gap-1">
+                  {countryFlag && <span>{countryFlag}</span>}
+                  <span>
+                    {cityName ? cityName : 'Loading...'}
+                    {countryCode ? `, ${countryCode}` : ''}
+                  </span>
+                </span>
+              </button>
+              
+              {/* Gregorian Date */}
+              <div
+                className={`flex items-center gap-2 text-[0.75rem] w-full ${
+                  theme === 'light' ? 'text-black/70' : 'text-white/80'
+                }`}
+              >
+                <Calendar className={`w-4 h-4 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-accent'}`} />
+                <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              </div>
+              
+              {/* Hijri Date */}
+              <div
+                className={`flex items-center gap-2 text-[0.75rem] w-full ${
+                  theme === 'light' ? 'text-black/60' : 'text-accent/80'
+                }`}
+              >
+                <Moon className={`w-4 h-4 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-accent'}`} />
+                <span>{todaySchedule.hijriDate}</span>
+              </div>
+            </div>
+
+            {/* Card 2 - Digital time top 60%, sunrise/sunset bottom 40% */}
+            <div
+              className={`rounded-3xl p-4 sm:p-5 border border-border/60 shadow-xl aspect-square flex flex-col overflow-hidden ${
+                theme === 'light' ? 'bg-white text-black' : 'bg-card/80 text-white'
+              }`}
+              style={{ backgroundImage: theme === 'light' ? 'radial-gradient(circle at 20% 20%, rgba(0,0,0,0.04), transparent 35%), radial-gradient(circle at 80% 80%, rgba(0,0,0,0.05), transparent 35%)' : 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06), transparent 35%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.05), transparent 35%)' }}
             >
-              <MapPin className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-accent" />
-              <span className="font-semibold">{cityName && countryName ? `${cityName}, ${countryName}` : 'Loading...'}</span>
-            </button>
-          </div>
+              <div className="flex flex-col w-full h-full items-center justify-center gap-3">
+                {/* Top: time + prayer */}
+                <div className="flex flex-col items-center justify-center gap-1.5 pt-1">
+                  <div
+                    className="text-xl sm:text-2xl font-semibold tracking-wide text-center leading-tight"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {currentTime.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: !is24Hour,
+                      timeZone: location?.timezone || undefined,
+                    })}
+                  </div>
+                  <div className={`text-[11px] sm:text-sm font-semibold leading-tight text-center ${theme === 'light' ? 'text-black/70' : 'text-white/80'}`}>
+                    Current Prayer: {currentPrayer?.prayer?.name || '--'}
+                  </div>
+                </div>
 
-          {/* Date info with elegant styling */}
-          <div className="mb-4 sm:mb-6 text-center">
-            <p className="text-white/95 font-semibold mb-1 text-sm sm:text-base">{todaySchedule.date}</p>
-            <div className="flex items-center justify-center gap-2">
-              <div className="h-px w-6 sm:w-8 bg-gradient-to-r from-transparent to-accent/50" />
-              <p className="text-accent/90 text-[10px] sm:text-xs font-medium">{todaySchedule.hijriDate}</p>
-              <div className="h-px w-6 sm:w-8 bg-gradient-to-l from-transparent to-accent/50" />
-            </div>
-          </div>
-
-          {/* Current time with Sunrise/Sunset - All in one row */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {/* Sunrise */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl py-3 sm:py-4 px-2 sm:px-3 border border-white/20 shadow-xl">
-              <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#f97316]/20 flex items-center justify-center flex-shrink-0">
-                  <Sunrise className="w-4 h-4 sm:w-5 sm:h-5 text-orange-300 flex-shrink-0" />
-                </div>
-                <div className="text-center w-full">
-                  <p className="text-white/60 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide mb-0.5">Sunrise</p>
-                  <p className="text-white font-bold text-[13px] sm:text-sm">{todaySchedule.sunrise}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Current Time - Center and larger */}
-            <div className="bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl py-3 sm:py-4 px-2 sm:px-3 border border-white/20 shadow-2xl">
-              <div className="flex flex-col items-center justify-center h-full w-full gap-0.5">
-                {/* Real Current Time */}
-                <div className="text-xl sm:text-2xl md:text-3xl font-light tracking-wide text-white text-center w-full">
-                  {demoTime.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: !is24Hour,
-                    timeZone: location?.timezone || undefined
-                  })}
-                </div>
-                {/* Current time label */}
-                <div className="flex items-center justify-center gap-1 text-white/60 text-[8px] sm:text-[9px] mt-0.5">
-                  <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
-                  <span className="font-semibold uppercase tracking-wider">Now</span>
-                </div>
-                
-                {/* Demo Time Testing (Uncomment to enable)
-                <div className="text-yellow-400/80 text-[8px] sm:text-[9px] mt-2 font-mono">
-                  Demo: Uncomment demoTime variable above to test
-                </div>
-                */}
-              </div>
-            </div>
-
-            {/* Sunset */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl py-3 sm:py-4 px-2 sm:px-3 border border-white/20 shadow-xl">
-              <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#a855f7]/20 flex items-center justify-center flex-shrink-0">
-                  <Sunset className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300 flex-shrink-0" />
-                </div>
-                <div className="text-center w-full">
-                  <p className="text-white/60 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide mb-0.5">Sunset</p>
-                  <p className="text-white font-bold text-[13px] sm:text-sm">{todaySchedule.sunset}</p>
+                {/* Bottom: sunrise + sunset inside card */}
+                <div className="flex w-full items-stretch justify-center gap-2.5 max-w-[320px] mx-auto">
+                  <div className={`flex-1 max-w-[150px] rounded-2xl px-3 py-2 flex flex-col items-center justify-center gap-0.5 ${theme === 'light' ? 'bg-primary/5 border border-border/60' : 'bg-white/5 border border-border/60'}`}>
+                    <Sunrise className="w-4 h-4 text-primary" />
+                    <div className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunrise</div>
+                    <div className="text-sm font-bold leading-tight">{todaySchedule.sunrise}</div>
+                  </div>
+                  <div className={`flex-1 max-w-[150px] rounded-2xl px-3 py-2 flex flex-col items-center justify-center gap-0.5 ${theme === 'light' ? 'bg-accent/5 border border-border/60' : 'bg-white/5 border border-border/60'}`}>
+                    <Sunset className="w-4 h-4 text-primary" />
+                    <div className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunset</div>
+                    <div className="text-sm font-bold leading-tight">{todaySchedule.sunset}</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
       </div>
 
@@ -617,8 +690,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
       {(currentPrayer || prohibitedInfo.isProhibited || nextPrayer) && (
         <div className="mx-3 sm:mx-4 -mt-6 sm:-mt-8 mb-3 sm:mb-4 relative z-20">
         {/* PROHIBITED TIME CARD */}
-          {prohibitedInfo.isProhibited ? (
-              <div className={`relative overflow-hidden bg-gradient-to-r from-red-900 via-red-800 to-red-900 rounded-2xl p-4 sm:p-5 shadow-xl transition-colors duration-1000`}>
+            {prohibitedInfo.isProhibited ? (
+              <div className={`relative overflow-hidden bg-gradient-to-r from-red-900 via-red-800 to-red-900 rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors duration-1000`}>
               {/* Warning line */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500" />
 
@@ -651,9 +724,13 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   {prohibitedInfo.endsAt && (
                     <div className="text-white text-3xl sm:text-4xl font-bold leading-none drop-shadow-lg">
                       {(() => {
-                        const diff = Math.max(0, prohibitedInfo.endsAt.getTime() - demoTime.getTime());
-                        const hours = Math.floor(diff / (1000 * 60 * 60));
-                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const diff = Math.max(0, prohibitedInfo.endsAt.getTime() - currentTime.getTime());
+                        const totalMinutes = Math.floor(diff / (1000 * 60));
+                        const hours = Math.floor(totalMinutes / 60);
+                        const minutes = totalMinutes % 60;
+                        if (hours <= 0) {
+                          return `${minutes}m`;
+                        }
                         return `${hours}h ${minutes}m`;
                       })()}
                     </div>
@@ -661,9 +738,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
               </div>
               </div>
-            ) : currentPrayer ? (
+            ) : currentPrayer && !afterMidnightBeforeFajr ? (
               /* NORMAL PRAYER CARD */
-              <div className={`relative overflow-hidden bg-gradient-to-r ${timeStyle.gradient} rounded-2xl p-4 sm:p-5 shadow-xl transition-colors duration-1000`}>
+              <div className={`relative overflow-hidden bg-gradient-to-r ${timeStyle.gradient} rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors duration-1000`}>
               {/* Horizon line */}
               <div className="absolute bottom-0 left-0 right-0 h-px bg-white/20" />
 
@@ -703,7 +780,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </div>
             ) : (
               /* NEXT PRAYER CARD - When not in prayer or prohibition */
-              <div className={`relative overflow-hidden bg-gradient-to-r ${timeStyle.gradient} rounded-2xl p-4 sm:p-5 shadow-xl transition-colors duration-1000`}>
+              <div className={`relative overflow-hidden bg-gradient-to-r ${timeStyle.gradient} rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors duration-1000`}>
               {/* Decorative line */}
               <div className="absolute bottom-0 left-0 right-0 h-px bg-white/20" />
 
@@ -796,7 +873,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 key={prayer.name}
                 className="relative group"
               >
-                <div className="relative bg-gradient-to-br from-card to-card/80 border border-white/5 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 text-center transition-all duration-300">
+                <div className="relative bg-card rounded-xl sm:rounded-2xl border border-border shadow-xl p-3 sm:p-4 text-center transition-all duration-300">
                   {/* Icon */}
                   <div className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl mb-1.5 sm:mb-2 bg-white/5 text-muted-foreground">
                     {getPrayerIcon(prayer.name)}
@@ -823,7 +900,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 key={prayer.name}
                 className="relative group"
               >
-                <div className="relative bg-gradient-to-br from-card to-card/80 border border-white/5 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 text-center transition-all duration-300">
+                <div className="relative bg-card rounded-xl sm:rounded-2xl border border-border shadow-xl p-3 sm:p-4 text-center transition-all duration-300">
                   {/* Icon */}
                   <div className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl mb-1.5 sm:mb-2 bg-white/5 text-muted-foreground">
                     {getPrayerIcon(prayer.name)}
@@ -844,26 +921,48 @@ export function HomePage({ onNavigate }: HomePageProps) {
 
         {/* Third row - Full width Tahajjud info card */}
         <div className="relative group mb-4 sm:mb-6">
-          <div className="relative bg-gradient-to-br from-purple-900/40 to-indigo-900/30 border border-purple-400/30 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 transition-all duration-300">
+          <div
+            className={`relative rounded-xl sm:rounded-2xl border shadow-2xl p-4 sm:p-6 transition-all duration-300 ${
+              theme === 'light'
+                ? 'border-border bg-gradient-to-br from-[#bef264] via-[#65a30d] to-[#365314] text-black'
+                : 'border-purple-400/30 bg-gradient-to-br from-purple-900/40 to-indigo-900/30 text-white'
+            }`}
+          >
             <div className="flex items-center gap-4 sm:gap-6">
               {/* Icon */}
-              <div className="flex-shrink-0 inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl bg-purple-500/20 text-white">
+              <div
+                className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl ${
+                  theme === 'light' ? 'bg-black/10 text-black' : 'bg-purple-500/20 text-white'
+                }`}
+              >
                 {getPrayerIcon('Tahajjud')}
               </div>
               
               {/* Content */}
               <div className="flex-1 text-left">
-                <h4 className="text-base sm:text-lg font-bold tracking-tight mb-1 text-white">
+                <h4
+                  className={`text-base sm:text-lg font-bold tracking-tight mb-1 ${
+                    theme === 'light' ? 'text-black' : 'text-white'
+                  }`}
+                >
                   Tahajjud
                 </h4>
-                <p className="text-xs sm:text-sm text-white/80 font-medium">
+                <p
+                  className={`text-xs sm:text-sm font-medium ${
+                    theme === 'light' ? 'text-black/80' : 'text-white/80'
+                  }`}
+                >
                   Sunnah Mu'akkadah
                 </p>
               </div>
               
               {/* Time window */}
               <div className="flex-shrink-0 text-right">
-                <p className="text-lg sm:text-2xl font-bold text-white">
+                <p
+                  className={`text-lg sm:text-2xl font-bold ${
+                    theme === 'light' ? 'text-black' : 'text-white'
+                  }`}
+                >
                   {formatTime(selectedSchedule.tahajjudStart)} - {formatTime(selectedSchedule.tahajjudEnd)}
                 </p>
               </div>
@@ -881,12 +980,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <button
             onClick={() => onNavigate('calendar')}
-            className="relative group overflow-hidden active:scale-95 transition-transform"
+            className="relative group overflow-hidden active:scale-95 transition-transform rounded-2xl sm:rounded-3xl"
           >
             {/* Hover glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent rounded-xl sm:rounded-2xl opacity-0 group-active:opacity-100 transition-opacity blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent rounded-2xl sm:rounded-3xl opacity-0 group-active:opacity-100 transition-opacity blur-xl" />
             
-            <div className="relative flex flex-col items-center gap-3 sm:gap-4 p-5 sm:p-6 bg-gradient-to-br from-card to-card/60 rounded-xl sm:rounded-2xl shadow-lg border border-white/5">
+            <div className="relative flex flex-col items-center gap-3 sm:gap-4 p-5 sm:p-6 bg-card rounded-2xl sm:rounded-3xl shadow-2xl border border-border">
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary via-[#0A8B73] to-[#0A6B5D] flex items-center justify-center shadow-xl border border-primary/30">
                 <Calendar className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
@@ -899,12 +998,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
           
           <button
             onClick={() => onNavigate('qibla')}
-            className="relative group overflow-hidden active:scale-95 transition-transform"
+            className="relative group overflow-hidden active:scale-95 transition-transform rounded-2xl sm:rounded-3xl"
           >
             {/* Hover glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent rounded-xl sm:rounded-2xl opacity-0 group-active:opacity-100 transition-opacity blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent rounded-2xl sm:rounded-3xl opacity-0 group-active:opacity-100 transition-opacity blur-xl" />
             
-            <div className="relative flex flex-col items-center gap-3 sm:gap-4 p-5 sm:p-6 bg-gradient-to-br from-card to-card/60 rounded-xl sm:rounded-2xl shadow-lg border border-white/5">
+            <div className="relative flex flex-col items-center gap-3 sm:gap-4 p-5 sm:p-6 bg-card rounded-2xl sm:rounded-3xl shadow-2xl border border-border">
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary via-[#0A8B73] to-[#0A6B5D] flex items-center justify-center shadow-xl border border-primary/30">
                 <Compass className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>

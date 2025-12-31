@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Compass, MapPin, AlertCircle, ArrowUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { getQiblaInfo } from '../../services/qiblaService';
 import { Capacitor } from '@capacitor/core';
 import { QiblaDirection } from '../services/qiblaNative';
@@ -8,6 +9,7 @@ import { setStatusBarTheme } from '../services/statusBarTheme';
 
 export function QiblaPage() {
   const { location, cityName } = useApp();
+  const { theme } = useTheme();
   const [qiblaData, setQiblaData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [nativeAngle, setNativeAngle] = useState<number | null>(null);
@@ -19,9 +21,9 @@ export function QiblaPage() {
   const displayHeadingRef = useRef<number>(0);
   const [showCalibration, setShowCalibration] = useState<boolean>(false);
 
-  // Qibla header uses the same softer primary gradient as notifications
+  // Qibla uses the standard teal primary status bar like other pages
   useEffect(() => {
-    setStatusBarTheme('primarySoft');
+    setStatusBarTheme('primary');
   }, []);
 
   useEffect(() => {
@@ -217,9 +219,9 @@ export function QiblaPage() {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary/80 text-white p-6 page-header-safe text-center">
-        <h1 className="text-3xl mb-2 font-light">Qibla</h1>
-        <div className="flex items-center gap-2 text-white/80 text-sm justify-center">
+      <div className={`bg-gradient-to-br text-center p-6 page-header-safe ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary to-primary/80 text-white'}`}>
+        <h1 className="text-3xl mb-2 font-light text-white">Qibla</h1>
+        <div className="flex items-center gap-2 text-sm justify-center text-white/80">
           <MapPin className="w-4 h-4" />
           <span>{cityName || 'Your Location'}</span>
         </div>

@@ -6,6 +6,7 @@ import { Network } from '@capacitor/network';
 import { SystemSettings } from '../../services/systemSettings';
 import { useApp } from '../context/AppContext';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+import { useTheme } from '../context/ThemeContext';
 
 interface LocationSetupPageProps {
   onBack: () => void;
@@ -14,6 +15,7 @@ interface LocationSetupPageProps {
 
 export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps) {
   const { requestLocationPerm, requestLocation: requestLocationData, setManualLocation } = useApp();
+  const { theme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [granted, setGranted] = useState(false);
@@ -104,7 +106,7 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 pb-20 flex flex-col">
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-12 overflow-hidden page-header-safe text-center">
+      <div className={`relative bg-gradient-to-br p-6 pb-12 overflow-hidden page-header-safe text-center ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
             <pattern id="profile-pattern" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse">
@@ -115,8 +117,8 @@ export function LocationSetupPage({ onBack, onComplete }: LocationSetupPageProps
           </svg>
         </div>
         <div className="relative z-10 text-center">
-          <h1 className="text-3xl sm:text-4xl font-light tracking-tight">Precise Location</h1>
-          <p className="text-white/80 text-sm mt-1">Set your prayer location</p>
+          <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-white">Precise Location</h1>
+          <p className="text-sm mt-1 text-white/80">Set your prayer location</p>
         </div>
       </div>
 

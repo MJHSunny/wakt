@@ -1,6 +1,7 @@
 package com.theaark.wakt;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
@@ -41,11 +42,13 @@ public class AdhanService extends Service implements MediaPlayer.OnCompletionLis
 
         // Check if adhan is enabled for this prayer
         if (!isAdhanEnabled(prayerName)) {
-            Log.d(TAG, "Adhan is disabled for " + prayerName + ", skipping audio playback");
-            // Still show notification, just don't play sound
+            Log.d(TAG, "Adhan is disabled for " + prayerName + ", running foreground service with silent notification");
+
+            // Start foreground service with the notification, but do NOT
+            // play audio. This mirrors the normal path so Android keeps
+            // the service and notification alive reliably.
             startForeground(NOTIFICATION_ID, createNotification());
-            stopSelf();
-            return START_NOT_STICKY;
+            return START_STICKY;
         }
 
         // Ensure alarm volume is at least audible; if muted, lift to 1 step, otherwise respect user volume

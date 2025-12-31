@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Star, RefreshCw, Wifi, WifiOff } from 'lucid
 import { importantDates } from '../utils/prayerData';
 import { getHijriCalendarService } from '../../services/hijriCalendarService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+import { useTheme } from '../context/ThemeContext';
 
 export function IslamicCalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(0); // 0 = current month, 1 = next, -1 = prev
@@ -15,6 +16,7 @@ export function IslamicCalendarPage() {
   const [manualFetching, setManualFetching] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const hijriService = getHijriCalendarService();
+  const { theme } = useTheme();
 
   // Use primary header theme
   useEffect(() => {
@@ -186,7 +188,7 @@ export function IslamicCalendarPage() {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">
       {/* Header - Muslim Pro style */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-8 overflow-hidden page-header-safe">
+      <div className={`relative bg-gradient-to-br p-6 pb-8 overflow-hidden page-header-safe ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         {/* Islamic pattern overlay */}
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">

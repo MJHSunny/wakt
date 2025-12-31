@@ -18,7 +18,7 @@ export async function setStatusBarTheme(theme: StatusBarThemeKey) {
         color = '#0a1612';
         break;
       case 'primarySoft':
-        color = '#0A6B5D';
+        color = '#65a30d';
         break;
       case 'primaryStrong':
         color = '#0D7C66';

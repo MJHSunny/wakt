@@ -2,12 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Settings, MapPin, Volume2, Info, Heart, Clock, HelpCircle } from 'lucide-react';
 import { useTimeFormat } from '../context/TimeFormatContext';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { calculationMethods } from '../../services/prayerService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
 
-export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; onNavigate?: (page: string) => void }) {
+export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { is24Hour, toggleTimeFormat } = useTimeFormat();
   const { calculationMethod, setCalculationMethod, madhab, setMadhab, location, cityName, countryName } = useApp();
+  const { theme } = useTheme();
   const calculationOptions = useMemo(() => calculationMethods.map((m) => m.name), []);
   const [consentActive, setConsentActive] = useState<boolean>(false);
   const [isEUUser, setIsEUUser] = useState<boolean>(false);
@@ -54,7 +56,7 @@ export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; 
   
   return (
     <div className="min-h-screen bg-background pb-20 overflow-y-auto">{/* Header - Muslim Pro styled */}
-      <div className="relative bg-gradient-to-br from-primary via-[#0A6B5D] to-primary text-white p-6 pb-12 overflow-hidden page-header-safe text-center">
+      <div className={`relative bg-gradient-to-br p-6 pb-12 overflow-hidden page-header-safe text-center ${theme === 'light' ? 'from-primary via-[#0A6B5D] to-primary text-white' : 'from-primary via-[#0A6B5D] to-primary text-white'}`}>
         {/* Islamic pattern overlay */}
         <div className="absolute inset-0 opacity-[0.08]">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -67,8 +69,8 @@ export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; 
         </div>
 
         <div className="relative z-10">
-          <h1 className="text-3xl font-light tracking-tight">Settings</h1>
-          <p className="text-white/80 text-sm mt-1">Manage your preferences</p>
+          <h1 className="text-3xl font-light tracking-tight text-white">Settings</h1>
+          <p className="text-sm mt-1 text-white/80">Manage your preferences</p>
         </div>
       </div>
 
@@ -206,7 +208,7 @@ export function SettingsPage({ onDonate, onNavigate }: { onDonate?: () => void; 
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Version</span>
-              <span className="text-foreground font-medium">1.0.4</span>
+              <span className="text-foreground font-medium">1.0.6</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Update</span>

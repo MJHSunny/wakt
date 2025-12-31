@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Network } from '@capacitor/network';
+import { StatusBar } from '@capacitor/status-bar';
+import { FourSquare } from 'react-loading-indicators';
 import { applyFontCache } from '../services/fontCacheService';
 import { HomePage } from './components/HomePage';
 import { PrayerSchedulePage } from './components/PrayerSchedulePage';
@@ -11,13 +13,12 @@ import { SettingsPage } from './components/SettingsPage';
 import { LocationSetupPage } from './components/LocationSetupPage';
 import { LocationSetupPageSimple } from './components/LocationSetupPageSimple';
 
-import { DonationPage } from './components/DonationPage';
 import { SupportPage } from './components/SupportPage';
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsPage } from './components/TermsPage';
-import { FloatingDonateButton } from './components/FloatingDonateButton';
 import { BottomNav } from './components/BottomNav';
 import { TimeFormatProvider } from './context/TimeFormatContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 import { useApp } from './context/AppContext';
 import { NotificationSetupPageSimple } from './components/NotificationSetupPageSimple';
@@ -25,9 +26,9 @@ import { GdprSetupPageSimple } from './components/GdprSetupPageSimple';
 import { InternetSetupPageSimple } from './components/InternetSetupPageSimple';
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const [showDonation, setShowDonation] = useState(false);
   const [navMode, setNavMode] = React.useState<'full-screen' | 'gesture' | '3-button' | 'unknown'>('unknown');
   const [hasScrolled, setHasScrolled] = React.useState(false);
+  const [showSplash, setShowSplash] = React.useState(true);
 
   // Detect navigation mode based on system inset value
   React.useEffect(() => {
@@ -106,6 +107,15 @@ export default function App() {
     };
   }, []);
 
+  // Scroll to top when page changes
+  React.useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) {
+      root.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [currentPage]);
+
   function renderPage() {
     switch (currentPage) {
       case 'home':
@@ -119,7 +129,7 @@ export default function App() {
       case 'notifications':
         return <NotificationsPage />;
       case 'settings':
-        return <SettingsPage onDonate={() => setShowDonation(true)} onNavigate={setCurrentPage} />;
+        return <SettingsPage onNavigate={setCurrentPage} />;
       case 'location-setup':
         return <LocationSetupPage onBack={() => setCurrentPage('settings')} />;
       case 'support':
@@ -135,27 +145,78 @@ export default function App() {
 
   return (
     <AppProvider>
-      <TimeFormatProvider>
-        {/* Fixed web-side backdrop behind the Android status bar */}
-        <div className={hasScrolled ? 'status-bar-overlay status-bar-overlay--visible' : 'status-bar-overlay'} />
-        <PermissionsGate 
-          showDonation={showDonation} 
-          setShowDonation={setShowDonation} 
-          setCurrentPage={setCurrentPage}
-          currentPage={currentPage}
-          renderPage={renderPage}
-        />
-      </TimeFormatProvider>
+      <ThemeProvider>
+        <TimeFormatProvider>
+          <MemoizedSplashScreen showSplash={showSplash} />
+          {/* Fixed web-side backdrop behind the Android status bar - hidden during splash */}
+          {!showSplash && (
+            <div className={hasScrolled ? 'status-bar-overlay status-bar-overlay--visible' : 'status-bar-overlay'} />
+          )}
+          <PermissionsGate 
+            setCurrentPage={setCurrentPage}
+            currentPage={currentPage}
+            renderPage={renderPage}
+            showSplash={showSplash}
+            setShowSplash={setShowSplash}
+          />
+        </TimeFormatProvider>
+      </ThemeProvider>
     </AppProvider>
   );
 }
 
-function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, currentPage, renderPage }: { 
-  showDonation: boolean; 
-  setShowDonation: (v: boolean) => void; 
+function SplashScreenLayer({ showSplash }: { showSplash: boolean }) {
+  const { theme } = useTheme();
+
+  return (
+    <AnimatePresence mode="wait">
+      {showSplash && (
+        <motion.div
+          key="splash"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center overflow-hidden"
+          style={{
+            width: '100vw',
+            height: '100vh',
+            top: 0,
+            left: 0,
+            margin: 0,
+            padding: 0,
+            border: 'none',
+            backgroundColor: theme === 'light' ? '#ffffff' : '#0f172a',
+            willChange: 'opacity',
+            backfaceVisibility: 'hidden'
+          }}
+        >
+          <motion.div 
+            className="relative z-10 text-center"
+            style={{ willChange: 'transform' }}
+          >
+            <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
+              <FourSquare 
+                color="#0D7C66" 
+                size="large" 
+                text="" 
+                textColor={theme === 'light' ? '#000000' : '#ffffff'} 
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+const MemoizedSplashScreen = React.memo(SplashScreenLayer);
+
+function PermissionsGate({ setCurrentPage, currentPage, renderPage, showSplash, setShowSplash }: { 
   setCurrentPage: (v: string) => void;
   currentPage: string;
   renderPage: () => React.ReactElement;
+  showSplash: boolean;
+  setShowSplash: (v: boolean) => void;
 }) {
   const { 
     permissionsChecked,
@@ -166,8 +227,8 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
     location,
     prayerTimes
   } = useApp();
+  const { theme } = useTheme();
   
-  const [showSplash, setShowSplash] = React.useState(true);
   const [showSetupFlow, setShowSetupFlow] = React.useState(false);
   const [currentSetupStep, setCurrentSetupStep] = React.useState(0);
   const [isOnline, setIsOnline] = React.useState<boolean | null>(null);
@@ -234,100 +295,64 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
       // Silently fail if cache is not available
     });
   }, []);
+
+  // Hide splash after brief delay to allow native splash to show
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500); // Shows: native splash 500ms + React loader 2000ms
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Hide status bar during splash screen
+  React.useEffect(() => {
+    const handleStatusBar = async () => {
+      try {
+        if (showSplash) {
+          await StatusBar.hide();
+        } else {
+          await StatusBar.show();
+        }
+      } catch (err) {
+        // StatusBar API might not be available
+        console.log('StatusBar API not available');
+      }
+    };
+    
+    handleStatusBar();
+  }, [showSplash]);
   
-  // Check if notifications are disabled (mandatory mode)
   // After initial permission check, decide whether to run setup
   React.useEffect(() => {
     if (!permissionsChecked) return;
     if (showSetupFlow) return; // keep current flow steps stable once started
 
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-      const missing: Array<'internet' | 'location' | 'notification' | 'gdpr'> = [];
-      // Skip location entirely if a saved location exists; no permission or internet check
-      if (!location) {
-        if (isOnline === false) missing.push('internet');
-        missing.push('location');
-      }
-      if (!notificationPermissionGranted) missing.push('notification');
-      if (gdprConsentMissing) missing.push('gdpr');
+    const missing: Array<'internet' | 'location' | 'notification' | 'gdpr'> = [];
+    // Skip location entirely if a saved location exists; no permission or internet check
+    if (!location) {
+      if (isOnline === false) missing.push('internet');
+      missing.push('location');
+    }
+    if (!notificationPermissionGranted) missing.push('notification');
+    if (gdprConsentMissing) missing.push('gdpr');
 
-      setStepsToRun(missing);
-      setShowSetupFlow(missing.length > 0);
-    }, 800);
-
-    return () => clearTimeout(timer);
+    setStepsToRun(missing);
+    setShowSetupFlow(missing.length > 0);
   }, [permissionsChecked, isOnline, location, notificationPermissionGranted, gdprConsentMissing, showSetupFlow]);
-
-  const splashLoaderCss = `
-    .splash-loader {
-      height: 60px;
-      aspect-ratio: 2;
-      border-bottom: 3px solid transparent;
-      background:
-        linear-gradient(90deg, #ffffff 50%, transparent 0) -25% 100%/50% 3px repeat-x border-box;
-      position: relative;
-      animation: l3-0 .75s linear infinite;
-    }
-    .splash-loader:before {
-      content: '';
-      position: absolute;
-      inset: auto 42.5% 0;
-      aspect-ratio: 1;
-      border-radius: 50%;
-      background: #D4AF37;
-      animation: l3-1 .75s cubic-bezier(0, 900, 1, 900) infinite;
-    }
-    @keyframes l3-0 { to { background-position: -125% 100%; } }
-    @keyframes l3-1 {
-      0%, 2% { bottom: 0%; }
-      98%, to { bottom: .1%; }
-    }
-  `;
 
   return (
     <>
-      <style>{splashLoaderCss}</style>
-      {/* Splash Screen Overlay */}
-      <AnimatePresence>
-        {showSplash && (
-          <motion.div
-            key="splash"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-            style={{ 
-              willChange: 'opacity',
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-              perspective: 1000
-            }}
-            className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden"
-          >
-          <div className="relative z-10 text-center">
-            <div className="relative w-24 h-24 mx-auto mb-8 flex items-center justify-center">
-              <div className="splash-loader" />
-            </div>
-
-            {/* App name */}
-            <h1 className="text-white text-4xl font-light tracking-[0.2em] mb-2">WAKT</h1>
-
-            {/* Tagline */}
-            <p className="text-white/70 text-sm uppercase tracking-[0.12em]">Your Prayer Time Companion</p>
-          </div>
-        </motion.div>
-      )}
-      </AnimatePresence>
-
-      {/* Main App Content - shown after splash */}
+      {/* Main App Content */}
       {!showSplash && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
           className="min-h-screen w-full max-w-full overflow-x-hidden"
           style={{ 
-            paddingBottom: '4rem'
+            paddingBottom: '4rem',
+            willChange: 'opacity',
+            backfaceVisibility: 'hidden'
           }}
         >
           {/* Setup workflow - show one page at a time based on missing permissions */}
@@ -392,16 +417,10 @@ function PermissionsGate({ showDonation, setShowDonation, setCurrentPage, curren
           )}
 
           {/* Main app */}
-          {!showSetupFlow && (
+          {!showSetupFlow && !showSplash && (
             <>
-              {showDonation && <DonationPage onBack={() => setShowDonation(false)} />}
-              {!showDonation && (
-                <>
-                  {renderPage()}
-                  {/* <FloatingDonateButton onClick={() => setShowDonation(true)} /> */}
-                  <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
-                </>
-              )}
+              {renderPage()}
+              <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
             </>
           )}
         </motion.div>

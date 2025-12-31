@@ -14,6 +14,7 @@ export interface LocationData {
   accuracy?: number;
   city?: string;
   country?: string;
+  countryCode?: string;
   timezone?: string;
 }
 
@@ -126,7 +127,7 @@ export async function clearLocationWatch(id: string): Promise<void> {
 }
 
 // Reverse geocoding (using browser API or external service)
-export async function reverseGeocode(lat: number, lng: number): Promise<{ city?: string; country?: string }> {
+export async function reverseGeocode(lat: number, lng: number): Promise<{ city?: string; country?: string; countryCode?: string }> {
   try {
     // Using OpenStreetMap Nominatim API (free, no API key required)
     const response = await fetch(
@@ -141,10 +142,11 @@ export async function reverseGeocode(lat: number, lng: number): Promise<{ city?:
     return {
       city: data.address?.city || data.address?.town || data.address?.village || 'Unknown',
       country: data.address?.country || 'Unknown',
+      countryCode: data.address?.country_code ? String(data.address.country_code).toUpperCase() : undefined,
     };
   } catch (error) {
     console.error('Error reverse geocoding:', error);
-    return { city: 'Unknown', country: 'Unknown' };
+    return { city: 'Unknown', country: 'Unknown', countryCode: undefined };
   }
 }
 
@@ -176,6 +178,7 @@ export async function searchLocationByName(query: string): Promise<LocationData 
       longitude: Number(first.lon),
       city: first.address?.city || first.address?.town || first.address?.village || first.display_name?.split(',')[0]?.trim(),
       country: first.address?.country || first.display_name?.split(',').pop()?.trim(),
+      countryCode: first.address?.country_code ? String(first.address.country_code).toUpperCase() : undefined,
       timezone,
     };
   } catch (error) {
@@ -190,6 +193,7 @@ export interface LocationSuggestion {
   longitude: number;
   city: string;
   country: string;
+  countryCode?: string;
   displayName: string;
   timezone?: string;
 }
@@ -225,6 +229,7 @@ export async function searchLocations(query: string, limit: number = 8): Promise
       const lon = Number(item.lon);
       const city = item.address?.city || item.address?.town || item.address?.village || item.display_name?.split(',')[0]?.trim() || 'Unknown';
       const country = item.address?.country || item.display_name?.split(',').pop()?.trim() || 'Unknown';
+      const countryCode = item.address?.country_code ? String(item.address.country_code).toUpperCase() : undefined;
       const displayName = `${city}, ${country}`;
       let timezone: string | undefined;
       
@@ -241,7 +246,7 @@ export async function searchLocations(query: string, limit: number = 8): Promise
         timezone = undefined;
       }
       
-      return { latitude: lat, longitude: lon, city, country, displayName, timezone };
+      return { latitude: lat, longitude: lon, city, country, countryCode, displayName, timezone };
     });
     
     console.log('[searchLocations] Returning', results.length, 'results with timezones');
