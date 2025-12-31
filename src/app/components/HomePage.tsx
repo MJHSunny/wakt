@@ -650,7 +650,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 {/* Top: time + prayer */}
                 <div className="flex flex-col items-center justify-center gap-1.5 pt-1">
                   <div
-                    className="text-xl sm:text-2xl font-semibold tracking-wide text-center leading-tight"
+                    className="text-2xl sm:text-3xl font-light tracking-wide text-center leading-tight"
                     style={{ fontVariantNumeric: 'tabular-nums' }}
                   >
                     {currentTime.toLocaleTimeString('en-US', {
@@ -670,13 +670,13 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 <div className="flex w-full items-stretch justify-center gap-2.5 max-w-[320px] mx-auto">
                   <div className={`flex-1 max-w-[150px] rounded-2xl px-3 py-2 flex flex-col items-center justify-center gap-0.5 ${theme === 'light' ? 'bg-primary/5 border border-border/60' : 'bg-white/5 border border-border/60'}`}>
                     <Sunrise className="w-4 h-4 text-primary" />
-                    <div className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunrise</div>
-                    <div className="text-sm font-bold leading-tight">{todaySchedule.sunrise}</div>
+                    <div className={`text-[10px] font-medium uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunrise</div>
+                    <div className="text-sm font-light leading-tight">{todaySchedule.sunrise}</div>
                   </div>
                   <div className={`flex-1 max-w-[150px] rounded-2xl px-3 py-2 flex flex-col items-center justify-center gap-0.5 ${theme === 'light' ? 'bg-accent/5 border border-border/60' : 'bg-white/5 border border-border/60'}`}>
                     <Sunset className="w-4 h-4 text-primary" />
-                    <div className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunset</div>
-                    <div className="text-sm font-bold leading-tight">{todaySchedule.sunset}</div>
+                    <div className={`text-[10px] font-medium uppercase tracking-wide leading-tight ${theme === 'light' ? 'text-black/60' : 'text-white/70'}`}>Sunset</div>
+                    <div className="text-sm font-light leading-tight">{todaySchedule.sunset}</div>
                   </div>
                 </div>
               </div>

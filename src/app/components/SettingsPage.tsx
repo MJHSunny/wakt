@@ -1,10 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Settings, MapPin, Volume2, Info, Heart, Clock, HelpCircle } from 'lucide-react';
+import { App, type AppInfo } from '@capacitor/app';
 import { useTimeFormat } from '../context/TimeFormatContext';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { calculationMethods } from '../../services/prayerService';
 import { setStatusBarTheme } from '../services/statusBarTheme';
+
+// Fallback metadata used if native App.getInfo is unavailable
+const APP_VERSION = '1.0.7';
+const APP_RELEASE_DATE = 'Dec 31, 2025';
 
 export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { is24Hour, toggleTimeFormat } = useTimeFormat();
@@ -13,6 +18,8 @@ export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => vo
   const calculationOptions = useMemo(() => calculationMethods.map((m) => m.name), []);
   const [consentActive, setConsentActive] = useState<boolean>(false);
   const [isEUUser, setIsEUUser] = useState<boolean>(false);
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
+  const [appMeta, setAppMeta] = useState<{ version: string; lastUpdated: string } | null>(null);
 
   // Settings header uses the primary gradient
   useEffect(() => {
@@ -51,6 +58,46 @@ export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => vo
 
     detectEU();
   }, [countryName]);
+
+  // Load app version from native (via Capacitor) and derive a per-version "last updated" date
+  useEffect(() => {
+    const loadAppInfo = async () => {
+      try {
+        const info = await App.getInfo();
+        setAppInfo(info);
+
+        try {
+          const storedRaw = localStorage.getItem('wakt_app_meta');
+          let stored: { version: string; lastUpdated: string } | null = null;
+          if (storedRaw) {
+            try {
+              stored = JSON.parse(storedRaw);
+            } catch {
+              stored = null;
+            }
+          }
+
+          let current = stored;
+          const currentVersion = info.version || APP_VERSION;
+          if (!current || current.version !== currentVersion) {
+            current = {
+              version: currentVersion,
+              lastUpdated: new Date().toISOString(),
+            };
+            localStorage.setItem('wakt_app_meta', JSON.stringify(current));
+          }
+          setAppMeta(current);
+        } catch {
+          // Ignore localStorage issues; fall back to static metadata
+        }
+      } catch {
+        // If App.getInfo fails (e.g., pure web), fall back to static metadata
+        setAppInfo(null);
+      }
+    };
+
+    loadAppInfo();
+  }, []);
 
   const consentTitle = isEUUser ? 'GDPR Consent' : 'Privacy Consent';
   
@@ -208,11 +255,19 @@ export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => vo
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Version</span>
-              <span className="text-foreground font-medium">1.0.7</span>
+              <span className="text-foreground font-medium">{appMeta?.version || appInfo?.version || APP_VERSION}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Update</span>
-              <span className="text-foreground font-medium">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span className="text-foreground font-medium">
+                {appMeta
+                  ? new Date(appMeta.lastUpdated).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  : APP_RELEASE_DATE}
+              </span>
             </div>
           </div>
         </div>
