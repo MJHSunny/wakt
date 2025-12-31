@@ -208,7 +208,7 @@ export function SettingsPage({ onNavigate }: { onNavigate?: (page: string) => vo
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Version</span>
-              <span className="text-foreground font-medium">1.0.6</span>
+              <span className="text-foreground font-medium">1.0.7</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Update</span>
